@@ -21,8 +21,14 @@ const DEFAULT_QUERY = "https://doi.org/10.1038/nature14539";
 const PAPER_PREVIEW_COUNT = 8;
 const PEOPLE_PAGE_SIZE = 10;
 
-export default function OverlapHome() {
-  const [query, setQuery] = useState(DEFAULT_QUERY);
+export default function OverlapHome({
+  embedded = false,
+  initialQuery = DEFAULT_QUERY,
+}: {
+  embedded?: boolean;
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery);
   const [result, setResult] = useState<AuthorOverlapResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +72,8 @@ export default function OverlapHome() {
     }
 
     hasLoadedDefault.current = true;
-    void runQuery(DEFAULT_QUERY);
-  }, [runQuery]);
+    void runQuery(initialQuery);
+  }, [initialQuery, runQuery]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,9 +105,22 @@ export default function OverlapHome() {
   );
 
   return (
-    <main className="min-h-screen bg-white text-[var(--color-jet-ink)]">
-      <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12">
-        <header>
+    <main
+      className={
+        embedded
+          ? "text-[var(--color-jet-ink)]"
+          : "min-h-screen bg-white text-[var(--color-jet-ink)]"
+      }
+    >
+      <div
+        className={
+          embedded
+            ? "w-full pb-10"
+            : "mx-auto w-full max-w-[1180px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12"
+        }
+      >
+        {!embedded ? (
+          <header>
           <div className="flex items-center justify-between gap-4">
             <Link href="/" className="ui-press text-sm font-medium">
               Researcher Map
@@ -171,10 +190,46 @@ export default function OverlapHome() {
               {error}
             </p>
           ) : null}
-        </header>
+          </header>
+        ) : (
+          <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                Complete overlap analysis
+              </p>
+              <h2 className="mt-1 text-2xl font-medium">
+                People and papers shared across the seed authors
+              </h2>
+              <p className="mt-2 text-sm text-[var(--color-steel)]">
+                Built from every paper OpenAlex lists for each author.
+              </p>
+            </div>
+            <Link
+              href="/connections"
+              className="ui-press inline-flex items-center gap-1 text-sm text-[var(--color-steel)] hover:text-black"
+            >
+              Open focused view
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+            {isLoading ? (
+              <p className="text-sm text-[var(--color-fog)] sm:text-right">
+                Scanning complete author histories...
+              </p>
+            ) : null}
+            {error ? (
+              <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {error}
+              </p>
+            ) : null}
+          </header>
+        )}
 
         {result ? (
-          <div className={`mt-10 space-y-6 ${isLoading ? "opacity-50" : "opacity-100"}`}>
+          <div
+            className={`${embedded ? "mt-5" : "mt-10"} space-y-6 ${
+              isLoading ? "opacity-50" : "opacity-100"
+            }`}
+          >
             <section className="overflow-hidden rounded-lg border border-[var(--color-dove)]">
               <div className="p-5 sm:p-6">
                 <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">

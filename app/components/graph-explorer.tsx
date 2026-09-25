@@ -16,6 +16,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from "react";
+import OverlapHome from "@/app/components/overlap-home";
 import { GraphEdge, GraphNode, GraphResponse } from "@/lib/graph-types";
 
 type PositionedNode = GraphNode & {
@@ -305,11 +306,10 @@ export default function GraphExplorer() {
         </section>
 
         {graph ? (
-          <SharedPeopleExplorer
+          <OverlapHome
             key={graph.summary.seedUrl}
-            graph={graph}
-            onSelect={selectGraphItem}
-            onPreview={setHoveredId}
+            embedded
+            initialQuery={query}
           />
         ) : null}
 
@@ -326,7 +326,7 @@ export default function GraphExplorer() {
   );
 }
 
-function SharedPeopleExplorer({
+export function SharedPeopleExplorer({
   graph,
   onSelect,
   onPreview,
