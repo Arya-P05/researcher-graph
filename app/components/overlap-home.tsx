@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, LoaderCircle, Search } from "lucide-react";
+import { ArrowUpRight, ChevronDown, LoaderCircle, Search, X } from "lucide-react";
 import {
   FormEvent,
   useCallback,
@@ -12,13 +12,15 @@ import {
 } from "react";
 import type {
   AuthorOverlapResponse,
-  OverlapPaper,
+  SharedOverlapAuthor,
 } from "@/lib/author-overlap-types";
 
-type SortMode = "degree" | "citations" | "year-desc" | "year-asc";
+type AuthorSortMode = "overlaps" | "citations" | "papers" | "recent" | "name";
+type ProofPaperSortMode = "citations" | "year-desc" | "year-asc" | "seed-authors";
+type ProofPaper = SharedOverlapAuthor["papers"][number];
 
 const DEFAULT_QUERY = "https://doi.org/10.1038/nature14539";
-const PAPER_PREVIEW_COUNT = 8;
+const PROOF_PAPER_PREVIEW_COUNT = 5;
 const PEOPLE_PAGE_SIZE = 10;
 
 export default function OverlapHome({
@@ -32,10 +34,17 @@ export default function OverlapHome({
   const [result, setResult] = useState<AuthorOverlapResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("degree");
+  const [authorSortMode, setAuthorSortMode] =
+    useState<AuthorSortMode>("overlaps");
+  const [proofPaperSortMode, setProofPaperSortMode] =
+    useState<ProofPaperSortMode>("citations");
   const [seedAuthorFilter, setSeedAuthorFilter] = useState("all");
   const [sharedAuthorFilter, setSharedAuthorFilter] = useState("all");
+  const [authorSearch, setAuthorSearch] = useState("");
   const [visiblePeopleCount, setVisiblePeopleCount] = useState(PEOPLE_PAGE_SIZE);
+  const [visibleProofPaperCount, setVisibleProofPaperCount] = useState(
+    PROOF_PAPER_PREVIEW_COUNT,
+  );
   const hasLoadedDefault = useRef(false);
 
   const runQuery = useCallback(async (paperQuery: string) => {
@@ -54,11 +63,16 @@ export default function OverlapHome({
         throw new Error(payload.error ?? "Could not analyze this paper.");
       }
 
-      setResult(payload as AuthorOverlapResponse);
-      setSortMode("degree");
+      const overlapResult = payload as AuthorOverlapResponse;
+
+      setResult(overlapResult);
+      setAuthorSortMode("overlaps");
+      setProofPaperSortMode("citations");
       setSeedAuthorFilter("all");
-      setSharedAuthorFilter("all");
+      setSharedAuthorFilter(overlapResult.sharedAuthors[0]?.id ?? "all");
+      setAuthorSearch("");
       setVisiblePeopleCount(PEOPLE_PAGE_SIZE);
+      setVisibleProofPaperCount(PROOF_PAPER_PREVIEW_COUNT);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Something went wrong.");
     } finally {
@@ -80,29 +94,59 @@ export default function OverlapHome({
     void runQuery(query);
   }
 
-  const filteredPapers = useMemo(() => {
+  const filteredAuthors = useMemo(() => {
     if (!result) {
       return [];
     }
 
-    return result.papers
-      .filter((paper) => paper.sharedAuthorCount > 0)
-      .filter((paper) =>
+    const normalizedSearch = authorSearch.trim().toLowerCase();
+
+    return result.sharedAuthors
+      .filter((author) =>
         seedAuthorFilter === "all"
           ? true
-          : paper.seedAuthors.some((author) => author.id === seedAuthorFilter),
+          : author.connectedSeedAuthors.some(
+              (seedAuthor) => seedAuthor.id === seedAuthorFilter,
+            ),
       )
-      .filter((paper) =>
-        sharedAuthorFilter === "all"
-          ? true
-          : paper.sharedAuthors.some((author) => author.id === sharedAuthorFilter),
-      )
-      .sort((first, second) => comparePapers(first, second, sortMode));
-  }, [result, seedAuthorFilter, sharedAuthorFilter, sortMode]);
+      .filter((author) => {
+        if (!normalizedSearch) {
+          return true;
+        }
 
-  const activeSharedAuthor = result?.sharedAuthors.find(
-    (author) => author.id === sharedAuthorFilter,
-  );
+        return (
+          author.name.toLowerCase().includes(normalizedSearch) ||
+          (author.primaryInstitution ?? "")
+            .toLowerCase()
+            .includes(normalizedSearch) ||
+          author.connectedSeedAuthors.some((seedAuthor) =>
+            seedAuthor.name.toLowerCase().includes(normalizedSearch),
+          ) ||
+          author.papers.some((paper) =>
+            paper.title.toLowerCase().includes(normalizedSearch),
+          )
+        );
+      })
+      .sort((first, second) =>
+        compareSharedAuthors(first, second, authorSortMode),
+      );
+  }, [authorSearch, authorSortMode, result, seedAuthorFilter]);
+
+  const visibleAuthors = filteredAuthors.slice(0, visiblePeopleCount);
+  const activeSharedAuthor =
+    sharedAuthorFilter === "all"
+      ? null
+      : filteredAuthors.find((author) => author.id === sharedAuthorFilter) ?? null;
+  const sortedProofPapers = useMemo(() => {
+    if (!activeSharedAuthor) {
+      return [];
+    }
+
+    return [...activeSharedAuthor.papers].sort((first, second) =>
+      compareProofPapers(first, second, proofPaperSortMode),
+    );
+  }, [activeSharedAuthor, proofPaperSortMode]);
+  const visibleProofPapers = sortedProofPapers.slice(0, visibleProofPaperCount);
 
   return (
     <main
@@ -192,30 +236,18 @@ export default function OverlapHome({
           ) : null}
           </header>
         ) : (
-          <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
-                Complete overlap analysis
-              </p>
-              <h2 className="mt-1 text-2xl font-medium">
-                People and papers shared across the seed authors
-              </h2>
-              <p className="mt-2 text-sm text-[var(--color-steel)]">
-                Built from every paper OpenAlex lists for each author.
-              </p>
+          <header className="space-y-[16px]">
+            <div className="flex flex-col gap-[16px] sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                  overlap analysis
+                </p>
+                <h2 className="mt-[4px] text-[24px] font-medium leading-[32px]">
+                  People and papers shared across the seed authors
+                </h2>
+              </div>
             </div>
-            <Link
-              href="/connections"
-              className="ui-press inline-flex items-center gap-1 text-sm text-[var(--color-steel)] hover:text-black"
-            >
-              Open focused view
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </Link>
-            {isLoading ? (
-              <p className="text-sm text-[var(--color-fog)] sm:text-right">
-                Scanning complete author histories...
-              </p>
-            ) : null}
+            {isLoading ? <OverlapLoadingPanel /> : null}
             {error ? (
               <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {error}
@@ -235,29 +267,25 @@ export default function OverlapHome({
                 <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
                   Seed paper
                 </p>
-                <h2 className="mt-2 text-2xl font-medium leading-8">
+                <h2 className="mt-[8px] text-[24px] font-medium leading-[32px]">
                   {result.summary.seedTitle}
                 </h2>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {result.seedAuthors.map((author) => (
-                    <button
-                      key={author.id}
-                      type="button"
-                      onClick={() =>
-                        setSeedAuthorFilter(
-                          seedAuthorFilter === author.id ? "all" : author.id,
-                        )
-                      }
-                      className={`ui-press rounded-full border px-3 py-1.5 text-sm ${
-                        seedAuthorFilter === author.id
-                          ? "border-black bg-black text-white"
-                          : "border-[var(--color-dove)] bg-white hover:border-black"
-                      }`}
-                    >
-                      {author.name}
-                    </button>
+                <p className="mt-[16px] text-sm leading-6 text-[var(--color-steel)]">
+                  Seed authors:{" "}
+                  {result.seedAuthors.map((author, index) => (
+                    <span key={author.id}>
+                      {index > 0 ? ", " : ""}
+                      <a
+                        href={author.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ui-press text-black underline underline-offset-4 hover:text-[var(--color-steel)]"
+                      >
+                        {author.name}
+                      </a>
+                    </span>
                   ))}
-                </div>
+                </p>
               </div>
 
               <div className="grid border-t border-[var(--color-dove)] sm:grid-cols-3">
@@ -270,159 +298,332 @@ export default function OverlapHome({
               </div>
             </section>
 
-            <div className="grid items-start gap-6 lg:grid-cols-[0.9fr_1.25fr]">
-              <section className="overflow-hidden rounded-lg border border-[var(--color-dove)] bg-white">
-                <div className="flex items-end justify-between gap-4 border-b border-[var(--color-dove)] p-4">
-                  <div>
-                    <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
-                      Strongest overlaps
-                    </p>
-                    <h2 className="mt-1 text-xl font-medium">People connecting the authors</h2>
-                  </div>
-                  <span className="shrink-0 text-xs text-[var(--color-fog)]">
-                    Top {Math.min(visiblePeopleCount, result.sharedAuthors.length)}
-                  </span>
-                </div>
-
-                <div>
-                  {result.sharedAuthors.slice(0, visiblePeopleCount).map((author, index) => {
-                    const isActive = sharedAuthorFilter === author.id;
-
-                    return (
-                      <button
-                        key={author.id}
-                        type="button"
-                        onClick={() => setSharedAuthorFilter(isActive ? "all" : author.id)}
-                        className={`ui-press grid w-full grid-cols-[28px_minmax(0,1fr)_auto] gap-3 border-b border-[var(--color-dove)] p-4 text-left last:border-b-0 ${
-                          isActive ? "bg-[var(--color-sand)]" : "hover:bg-[var(--color-cream)]"
-                        }`}
-                      >
-                        <span className="font-[var(--font-geistmono)] text-xs text-[var(--color-fog)]">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">{author.name}</span>
-                          <span className="mt-1 block text-xs leading-5 text-[var(--color-fog)]">
-                            Connects {author.connectedSeedAuthors.length} of {result.seedAuthors.length} seed authors
-                          </span>
-                          <span className="mt-1 block truncate text-xs text-[var(--color-steel)]">
-                            {author.papers[0]?.title ?? "No proof paper"}
-                          </span>
-                        </span>
-                        <span className="rounded-md bg-[var(--color-cream)] px-2 py-1 text-center">
-                          <span className="block font-[var(--font-geistmono)] text-sm">{author.paperCount}</span>
-                          <span className="block text-[10px] text-[var(--color-fog)]">papers</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {result.sharedAuthors.length > PEOPLE_PAGE_SIZE ? (
-                  <div className="flex items-center justify-between gap-3 border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 text-xs text-[var(--color-fog)]">
-                    <span>
-                      Showing {Math.min(visiblePeopleCount, result.sharedAuthors.length)} of {formatNumber(result.sharedAuthors.length)} people
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setVisiblePeopleCount((current) =>
-                          current >= result.sharedAuthors.length
-                            ? PEOPLE_PAGE_SIZE
-                            : Math.min(current + PEOPLE_PAGE_SIZE, result.sharedAuthors.length),
-                        )
-                      }
-                      className="ui-press font-medium text-black underline underline-offset-4"
-                    >
-                      {visiblePeopleCount >= result.sharedAuthors.length
-                        ? "Show fewer"
-                        : `Show ${Math.min(PEOPLE_PAGE_SIZE, result.sharedAuthors.length - visiblePeopleCount)} more`}
-                    </button>
-                  </div>
-                ) : null}
-              </section>
-
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.72fr)]">
               <section className="overflow-hidden rounded-lg border border-[var(--color-dove)] bg-white">
                 <div className="border-b border-[var(--color-dove)] p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
-                        Research papers
+                        Overlapping authors
                       </p>
-                      <h2 className="mt-1 text-xl font-medium">Papers behind the overlap</h2>
+                      <h2 className="mt-1 text-xl font-medium">
+                        People connecting the seed authors
+                      </h2>
                     </div>
-                    <label className="flex items-center gap-2 text-xs text-[var(--color-fog)]">
-                      Sort
-                      <select
-                        value={sortMode}
-                        onChange={(event) => setSortMode(event.target.value as SortMode)}
-                        className="h-9 rounded-md border border-[var(--color-dove)] bg-white px-2 text-sm text-black outline-none focus:border-black"
-                      >
-                        <option value="degree">Most connected</option>
-                        <option value="citations">Most citations</option>
-                        <option value="year-desc">Newest</option>
-                        <option value="year-asc">Oldest</option>
-                      </select>
-                    </label>
+                    <span className="text-xs text-[var(--color-fog)]">
+                      {formatNumber(filteredAuthors.length)} matching people
+                    </span>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSeedAuthorFilter("all")}
-                      className={`ui-press rounded-full border px-2.5 py-1 text-xs ${
-                        seedAuthorFilter === "all"
-                          ? "border-black bg-black text-white"
-                          : "border-[var(--color-dove)]"
-                      }`}
-                    >
-                      All seed authors
-                    </button>
-                    {result.seedAuthors.map((author) => (
-                      <button
-                        key={author.id}
-                        type="button"
-                        onClick={() => setSeedAuthorFilter(author.id)}
-                        className={`ui-press rounded-full border px-2.5 py-1 text-xs ${
-                          seedAuthorFilter === author.id
-                            ? "border-black bg-black text-white"
-                            : "border-[var(--color-dove)]"
-                        }`}
+                  <div className="mt-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_170px_190px]">
+                    <label className="relative block">
+                      <span className="sr-only">Find an overlapping author</span>
+                      <Search
+                        size={15}
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-fog)]"
+                        aria-hidden="true"
+                      />
+                      <input
+                        value={authorSearch}
+                        onChange={(event) => {
+                          setAuthorSearch(event.target.value);
+                          setVisiblePeopleCount(PEOPLE_PAGE_SIZE);
+                        }}
+                        placeholder="Find author or paper"
+                        className="h-10 w-full rounded-md border border-[var(--color-dove)] bg-white pl-9 pr-3 text-sm outline-none placeholder:text-[var(--color-pewter)] focus:border-black"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Sort overlapping authors</span>
+                      <select
+                        value={authorSortMode}
+                        onChange={(event) => {
+                          setAuthorSortMode(event.target.value as AuthorSortMode);
+                          setVisiblePeopleCount(PEOPLE_PAGE_SIZE);
+                        }}
+                        className="h-10 w-full rounded-md border border-[var(--color-dove)] bg-white px-3 text-sm text-black outline-none focus:border-black"
                       >
-                        {author.name}
-                      </button>
-                    ))}
-                    {activeSharedAuthor ? (
-                      <button
-                        type="button"
-                        onClick={() => setSharedAuthorFilter("all")}
-                        className="ui-press rounded-full border border-black bg-[var(--color-sand)] px-2.5 py-1 text-xs"
+                        <option value="overlaps">Most overlaps</option>
+                        <option value="citations">Most citations</option>
+                        <option value="papers">Most papers</option>
+                        <option value="recent">Most recent</option>
+                        <option value="name">A to Z</option>
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <span className="sr-only">Filter by seed author</span>
+                      <select
+                        value={seedAuthorFilter}
+                        onChange={(event) => {
+                          setSeedAuthorFilter(event.target.value);
+                          setSharedAuthorFilter("all");
+                          setVisiblePeopleCount(PEOPLE_PAGE_SIZE);
+                          setVisibleProofPaperCount(PROOF_PAPER_PREVIEW_COUNT);
+                        }}
+                        className="h-10 w-full rounded-md border border-[var(--color-dove)] bg-white px-3 text-sm text-black outline-none focus:border-black"
                       >
-                        {activeSharedAuthor.name} ×
-                      </button>
-                    ) : null}
+                        <option value="all">Any seed author</option>
+                        {result.seedAuthors.map((author) => (
+                          <option key={author.id} value={author.id}>
+                            {author.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                 </div>
 
                 <div>
-                  {filteredPapers.slice(0, PAPER_PREVIEW_COUNT).map((paper) => (
-                    <PaperRow key={paper.id} paper={paper} />
-                  ))}
-                  {filteredPapers.length === 0 ? (
+                  {visibleAuthors.map((author, index) => {
+                    const isActive = sharedAuthorFilter === author.id;
+                    const latestYear = latestAuthorPaperYear(author);
+
+                    return (
+                      <article
+                        key={author.id}
+                        className="border-b border-[var(--color-dove)] last:border-b-0"
+                      >
+                        <button
+                          type="button"
+                          aria-expanded={isActive}
+                          onClick={() => {
+                            setSharedAuthorFilter(isActive ? "all" : author.id);
+                            setVisibleProofPaperCount(PROOF_PAPER_PREVIEW_COUNT);
+                          }}
+                          className={`ui-press grid w-full grid-cols-[32px_minmax(0,1fr)_auto] gap-3 p-4 text-left ${
+                            isActive ? "bg-[var(--color-sand)]" : "hover:bg-[var(--color-cream)]"
+                          }`}
+                        >
+                          <span className="font-[var(--font-geistmono)] text-xs text-[var(--color-fog)]">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-base font-medium">
+                              {author.name}
+                            </span>
+                            <span className="mt-1 block truncate text-xs text-[var(--color-fog)]">
+                              {author.primaryInstitution ?? "Unknown institution"}
+                            </span>
+                            <span className="mt-2 flex flex-wrap gap-1.5">
+                              {author.connectedSeedAuthors.map((seedAuthor) => (
+                                <span
+                                  key={seedAuthor.id}
+                                  className="rounded-full bg-[var(--color-cream)] px-2 py-1 text-[11px] text-[var(--color-steel)]"
+                                >
+                                  {seedAuthor.name}
+                                </span>
+                              ))}
+                            </span>
+                          </span>
+                          <span className="grid grid-cols-[64px_18px] items-center gap-2 text-right text-[11px] text-[var(--color-fog)] sm:grid-cols-[64px_72px_58px_18px]">
+                            <span>
+                              <span className="block font-[var(--font-geistmono)] text-sm text-black">
+                                {author.connectedSeedAuthors.length}/{result.seedAuthors.length}
+                              </span>
+                              overlaps
+                            </span>
+                            <span className="hidden sm:block">
+                              <span className="block font-[var(--font-geistmono)] text-sm text-black">
+                                {formatNumber(author.totalCitations)}
+                              </span>
+                              cites
+                            </span>
+                            <span className="hidden sm:block">
+                              <span className="block font-[var(--font-geistmono)] text-sm text-black">
+                                {latestYear || "-"}
+                              </span>
+                              latest
+                            </span>
+                            <ChevronDown
+                              size={16}
+                              className={`justify-self-end text-[var(--color-fog)] transition-transform duration-150 ease-[var(--ease-out)] ${
+                                isActive ? "rotate-180" : ""
+                              }`}
+                              aria-hidden="true"
+                            />
+                          </span>
+                        </button>
+
+                        {isActive ? (
+                          <div className="border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 lg:hidden">
+                            <p className="text-xs font-medium text-[var(--color-steel)]">
+                              Papers this author overlaps on
+                            </p>
+                            <div className="mt-2 space-y-2">
+                              {visibleProofPapers.map((paper) => (
+                                <ProofPaperRow key={paper.id} paper={paper} compact />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+
+                  {filteredAuthors.length === 0 ? (
                     <p className="p-4 text-sm text-[var(--color-fog)]">
-                      No overlap papers match this filter.
+                      No overlapping authors match those filters.
                     </p>
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-between gap-3 border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 text-xs text-[var(--color-fog)]">
-                  <span>
-                    Showing {Math.min(PAPER_PREVIEW_COUNT, filteredPapers.length)} of {formatNumber(filteredPapers.length)} papers
-                  </span>
-                  <Link href="/overlap" className="ui-press font-medium text-black underline underline-offset-4">
-                    Explore all
-                  </Link>
-                </div>
+                {filteredAuthors.length > PEOPLE_PAGE_SIZE ? (
+                  <div className="flex items-center justify-between gap-3 border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 text-xs text-[var(--color-fog)]">
+                    <span>
+                      Showing {Math.min(visiblePeopleCount, filteredAuthors.length)} of {formatNumber(filteredAuthors.length)} people
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisiblePeopleCount((current) =>
+                          current >= filteredAuthors.length
+                            ? PEOPLE_PAGE_SIZE
+                            : Math.min(current + PEOPLE_PAGE_SIZE, filteredAuthors.length),
+                        )
+                      }
+                      className="ui-press font-medium text-black underline underline-offset-4"
+                    >
+                      {visiblePeopleCount >= filteredAuthors.length
+                        ? "Show fewer"
+                        : `Show ${Math.min(PEOPLE_PAGE_SIZE, filteredAuthors.length - visiblePeopleCount)} more`}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="overflow-hidden rounded-lg border border-[var(--color-dove)] bg-white lg:sticky lg:top-4">
+                {activeSharedAuthor ? (
+                  <>
+                    <div className="border-b border-[var(--color-dove)] p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                            Selected author
+                          </p>
+                          <a
+                            href={activeSharedAuthor.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="ui-press mt-1 inline-flex max-w-full items-center gap-1 text-xl font-medium hover:underline"
+                          >
+                            <span className="truncate">{activeSharedAuthor.name}</span>
+                            <ArrowUpRight
+                              size={15}
+                              className="shrink-0 text-[var(--color-fog)]"
+                              aria-hidden="true"
+                            />
+                          </a>
+                          <p className="mt-1 truncate text-sm text-[var(--color-fog)]">
+                            {activeSharedAuthor.primaryInstitution ?? "Unknown institution"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSharedAuthorFilter("all")}
+                          className="ui-press rounded-full border border-[var(--color-dove)] p-2 text-[var(--color-fog)] hover:border-black hover:text-black"
+                          aria-label="Clear selected author"
+                        >
+                          <X size={15} aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-3 border-y border-[var(--color-dove)] text-center">
+                        <DetailMetric
+                          label="Overlaps"
+                          value={`${activeSharedAuthor.connectedSeedAuthors.length}/${result.seedAuthors.length}`}
+                        />
+                        <DetailMetric
+                          label="Papers"
+                          value={formatNumber(activeSharedAuthor.paperCount)}
+                        />
+                        <DetailMetric
+                          label="Citations"
+                          value={formatNumber(activeSharedAuthor.totalCitations)}
+                        />
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {activeSharedAuthor.connectedSeedAuthors.map((seedAuthor) => (
+                          <span
+                            key={seedAuthor.id}
+                            className="rounded-full bg-[var(--color-jet-ink)] px-2.5 py-1 text-xs text-white"
+                          >
+                            {seedAuthor.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border-b border-[var(--color-dove)] p-4">
+                      <div>
+                        <p className="text-sm font-medium">Overlap papers</p>
+                        <p className="mt-1 text-xs text-[var(--color-fog)]">
+                          Papers where this person appears with seed authors.
+                        </p>
+                      </div>
+                      <label>
+                        <span className="sr-only">Sort selected author papers</span>
+                        <select
+                          value={proofPaperSortMode}
+                          onChange={(event) =>
+                            setProofPaperSortMode(
+                              event.target.value as ProofPaperSortMode,
+                            )
+                          }
+                          className="h-9 rounded-md border border-[var(--color-dove)] bg-white px-2 text-sm text-black outline-none focus:border-black"
+                        >
+                          <option value="citations">Most citations</option>
+                          <option value="year-desc">Newest</option>
+                          <option value="year-asc">Oldest</option>
+                          <option value="seed-authors">Most seed authors</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div>
+                      {visibleProofPapers.map((paper) => (
+                        <ProofPaperRow key={paper.id} paper={paper} />
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 text-xs text-[var(--color-fog)]">
+                      <span>
+                        Showing {Math.min(visibleProofPaperCount, sortedProofPapers.length)} of {formatNumber(sortedProofPapers.length)} papers
+                      </span>
+                      {sortedProofPapers.length > PROOF_PAPER_PREVIEW_COUNT ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleProofPaperCount((current) =>
+                              current >= sortedProofPapers.length
+                                ? PROOF_PAPER_PREVIEW_COUNT
+                                : sortedProofPapers.length,
+                            )
+                          }
+                          className="ui-press font-medium text-black underline underline-offset-4"
+                        >
+                          {visibleProofPaperCount >= sortedProofPapers.length
+                            ? "Show fewer"
+                            : "Show all"}
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-5">
+                    <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                      Select an author
+                    </p>
+                    <h2 className="mt-1 text-xl font-medium">
+                      No author selected
+                    </h2>
+                    <p className="mt-3 text-sm leading-6 text-[var(--color-steel)]">
+                      Author details and proof papers will appear here.
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
           </div>
@@ -441,50 +642,177 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function PaperRow({ paper }: { paper: OverlapPaper }) {
+function OverlapLoadingPanel() {
+  return (
+    <section
+      aria-label="Overlap analysis loading"
+      aria-live="polite"
+      className="overflow-hidden rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-white"
+      role="status"
+    >
+      <div className="overlap-loading-rail" aria-hidden="true" />
+      <div className="grid gap-[16px] p-[16px] sm:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0">
+          <div className="flex items-center gap-[8px] text-sm font-medium text-[var(--color-jet-ink)]">
+            <LoaderCircle
+              className="overlap-loading-spinner shrink-0"
+              size={16}
+              aria-hidden="true"
+            />
+            Scanning complete author histories
+          </div>
+          <p className="mt-[6px] text-sm leading-6 text-[var(--color-steel)]">
+            Pulling papers, coauthors, and overlap evidence from OpenAlex.
+          </p>
+          <div className="mt-[16px] grid gap-[10px]" aria-hidden="true">
+            <div className="flex items-center gap-[10px]">
+              <span className="skeleton-pulse h-[28px] w-[28px] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[56%] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[18%] rounded-full bg-[var(--color-cream)]" />
+            </div>
+            <div className="flex items-center gap-[10px]">
+              <span className="skeleton-pulse h-[28px] w-[28px] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[42%] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[24%] rounded-full bg-[var(--color-cream)]" />
+            </div>
+            <div className="flex items-center gap-[10px]">
+              <span className="skeleton-pulse h-[28px] w-[28px] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[50%] rounded-full bg-[var(--color-sand)]" />
+              <span className="skeleton-pulse h-[10px] w-[14%] rounded-full bg-[var(--color-cream)]" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-[var(--color-cream)] p-[12px]">
+          <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+            Preparing
+          </p>
+          <div className="mt-[10px] grid gap-[8px] text-xs text-[var(--color-steel)]">
+            <span className="flex items-center justify-between gap-[12px]">
+              Shared people
+              <span className="skeleton-pulse h-[8px] w-[48px] rounded-full bg-white" />
+            </span>
+            <span className="flex items-center justify-between gap-[12px]">
+              Proof papers
+              <span className="skeleton-pulse h-[8px] w-[64px] rounded-full bg-white" />
+            </span>
+            <span className="flex items-center justify-between gap-[12px]">
+              Seed summary
+              <span className="skeleton-pulse h-[8px] w-[40px] rounded-full bg-white" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-r border-[var(--color-dove)] py-3 last:border-r-0">
+      <p className="font-[var(--font-geistmono)] text-base text-black">{value}</p>
+      <p className="mt-0.5 text-[11px] text-[var(--color-fog)]">{label}</p>
+    </div>
+  );
+}
+
+function ProofPaperRow({
+  paper,
+  compact = false,
+}: {
+  paper: ProofPaper;
+  compact?: boolean;
+}) {
   return (
     <a
       href={paper.url}
       target="_blank"
       rel="noreferrer"
-      className="ui-press block border-b border-[var(--color-dove)] p-4 last:border-b-0 hover:bg-[var(--color-cream)]"
+      className={`ui-press block border-b border-[var(--color-dove)] last:border-b-0 hover:bg-[var(--color-cream)] ${
+        compact ? "rounded-md border bg-white p-3" : "p-4"
+      }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-medium leading-5">{paper.title}</p>
           <p className="mt-1 text-xs text-[var(--color-fog)]">
-            {[paper.year, paper.type?.replaceAll("-", " ")].filter(Boolean).join(" · ")}
+            {paper.year ?? "Year unknown"}
           </p>
         </div>
         <ArrowUpRight size={15} className="mt-0.5 shrink-0 text-[var(--color-fog)]" aria-hidden="true" />
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
         <span className="rounded-md bg-[var(--color-cream)] px-2 py-1">
           {formatNumber(paper.citations)} citations
         </span>
-        <span className="rounded-md bg-[var(--color-cream)] px-2 py-1">
-          {paper.seedAuthorCount} seed {paper.seedAuthorCount === 1 ? "author" : "authors"}
-        </span>
-        <span className="rounded-md bg-[var(--color-sand)] px-2 py-1">
-          {paper.sharedAuthorCount} shared
-        </span>
+        {paper.seedAuthors.map((seedAuthor) => (
+          <span
+            key={seedAuthor.id}
+            className="rounded-md bg-[var(--color-sand)] px-2 py-1"
+          >
+            {seedAuthor.name}
+          </span>
+        ))}
       </div>
     </a>
   );
 }
 
-function comparePapers(first: OverlapPaper, second: OverlapPaper, mode: SortMode) {
+function compareSharedAuthors(
+  first: SharedOverlapAuthor,
+  second: SharedOverlapAuthor,
+  mode: AuthorSortMode,
+) {
   switch (mode) {
     case "citations":
-      return second.citations - first.citations || second.degree - first.degree;
+      return (
+        second.totalCitations - first.totalCitations ||
+        second.paperCount - first.paperCount
+      );
+    case "papers":
+      return (
+        second.paperCount - first.paperCount ||
+        second.totalCitations - first.totalCitations
+      );
+    case "recent":
+      return (
+        latestAuthorPaperYear(second) - latestAuthorPaperYear(first) ||
+        second.totalCitations - first.totalCitations
+      );
+    case "name":
+      return first.name.localeCompare(second.name);
+    case "overlaps":
+    default:
+      return (
+        second.connectedSeedAuthors.length - first.connectedSeedAuthors.length ||
+        second.paperCount - first.paperCount ||
+        second.totalCitations - first.totalCitations
+      );
+  }
+}
+
+function compareProofPapers(
+  first: ProofPaper,
+  second: ProofPaper,
+  mode: ProofPaperSortMode,
+) {
+  switch (mode) {
     case "year-desc":
       return (second.year ?? 0) - (first.year ?? 0) || second.citations - first.citations;
     case "year-asc":
       return (first.year ?? 9999) - (second.year ?? 9999) || second.citations - first.citations;
-    case "degree":
+    case "seed-authors":
+      return (
+        second.seedAuthors.length - first.seedAuthors.length ||
+        second.citations - first.citations
+      );
+    case "citations":
     default:
-      return second.degree - first.degree || second.citations - first.citations;
+      return second.citations - first.citations || (second.year ?? 0) - (first.year ?? 0);
   }
+}
+
+function latestAuthorPaperYear(author: SharedOverlapAuthor) {
+  return Math.max(0, ...author.papers.map((paper) => paper.year ?? 0));
 }
 
 function formatNumber(value: number) {

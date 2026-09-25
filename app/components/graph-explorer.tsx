@@ -214,17 +214,10 @@ export default function GraphExplorer() {
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                aria-describedby="paper-query-format"
                 className="block h-[32px] min-w-0 bg-transparent text-[22px] font-normal leading-none text-[var(--color-jet-ink)] outline-none placeholder:text-[var(--color-pewter)] sm:h-[36px] sm:text-[24px]"
                 spellCheck={false}
               />
-              <div className="mt-auto flex items-end justify-between gap-[16px] pt-[18px]">
-                <p
-                  id="paper-query-format"
-                  className="pb-[8px] text-[12px] leading-none text-[var(--color-pewter)] sm:text-[13px]"
-                >
-                  doi / title / openalex
-                </p>
+              <div className="mt-auto flex items-end justify-end gap-[16px] pt-[18px]">
                 <button
                   type="submit"
                   disabled={isLoading}
