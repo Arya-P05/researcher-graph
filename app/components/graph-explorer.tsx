@@ -35,6 +35,13 @@ type GraphDragState = {
   panY: number;
 };
 
+type PaperSortMode =
+  | "citations"
+  | "year-desc"
+  | "year-asc"
+  | "overlap"
+  | "layer";
+
 const exampleQueries = [
   "https://doi.org/10.1038/nature14539",
   "Attention Is All You Need",
@@ -286,6 +293,15 @@ export default function GraphExplorer() {
           ) : null}
         </section>
 
+        {graph ? (
+          <PaperOverlapExplorer
+            key={graph.summary.seedUrl}
+            graph={graph}
+            onSelect={selectGraphItem}
+            onPreview={setHoveredId}
+          />
+        ) : null}
+
         <MobileDetailSheet
           graph={graph}
           selected={detailSelection}
@@ -296,6 +312,302 @@ export default function GraphExplorer() {
         />
       </div>
     </main>
+  );
+}
+
+function PaperOverlapExplorer({
+  graph,
+  onSelect,
+  onPreview,
+}: {
+  graph: GraphResponse;
+  onSelect: (id: string) => void;
+  onPreview: (id: string | null) => void;
+}) {
+  const [paperQuery, setPaperQuery] = useState("");
+  const [layerFilter, setLayerFilter] = useState("all");
+  const [sortMode, setSortMode] = useState<PaperSortMode>("citations");
+  const [activeAuthorId, setActiveAuthorId] = useState<string | null>(null);
+
+  const activeAuthor =
+    graph.authorOverlaps.find((author) => author.id === activeAuthorId) ?? null;
+  const layerOptions = useMemo(
+    () => [
+      "all",
+      ...[...new Set(graph.workInsights.map((work) => work.depth))].sort(
+        (a, b) => a - b,
+      ),
+    ],
+    [graph.workInsights],
+  );
+  const filteredWorks = useMemo(() => {
+    const normalizedQuery = paperQuery.trim().toLowerCase();
+
+    return graph.workInsights
+      .filter((work) =>
+        layerFilter === "all" ? true : work.depth === Number(layerFilter),
+      )
+      .filter((work) =>
+        activeAuthorId
+          ? work.authors.some((author) => author.id === activeAuthorId)
+          : true,
+      )
+      .filter((work) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        return (
+          work.label.toLowerCase().includes(normalizedQuery) ||
+          work.authors.some((author) =>
+            author.name.toLowerCase().includes(normalizedQuery),
+          )
+        );
+      })
+      .sort((a, b) => comparePaperInsights(a, b, sortMode));
+  }, [activeAuthorId, graph.workInsights, layerFilter, paperQuery, sortMode]);
+  const papersWithOverlap = graph.workInsights.filter(
+    (work) => work.overlapAuthorCount > 0,
+  ).length;
+  const topOverlap = Math.max(
+    0,
+    ...graph.workInsights.map((work) => work.overlapAuthorCount),
+  );
+
+  return (
+    <section className="grid gap-5 pb-10 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="min-w-0 space-y-4">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <OverlapMetric
+            label="Recurring authors"
+            value={graph.authorOverlaps.length}
+          />
+          <OverlapMetric label="Papers with overlap" value={papersWithOverlap} />
+          <OverlapMetric label="Top paper overlap" value={topOverlap} />
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-white p-3 sm:flex-row sm:items-center">
+          <label htmlFor="paper-overlap-search" className="sr-only">
+            Filter papers
+          </label>
+          <input
+            id="paper-overlap-search"
+            value={paperQuery}
+            onChange={(event) => setPaperQuery(event.target.value)}
+            placeholder="Filter papers or authors"
+            className="min-h-10 min-w-0 flex-1 rounded-[var(--radius-inputs)] border border-[var(--color-dove)] bg-white px-3 text-sm text-[var(--color-jet-ink)] outline-none placeholder:text-[var(--color-pewter)] focus:border-[var(--color-jet-ink)]"
+          />
+          <label htmlFor="paper-overlap-sort" className="sr-only">
+            Sort papers
+          </label>
+          <select
+            id="paper-overlap-sort"
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value as PaperSortMode)}
+            className="min-h-10 rounded-[var(--radius-inputs)] border border-[var(--color-dove)] bg-white px-3 text-sm text-[var(--color-jet-ink)] outline-none focus:border-[var(--color-jet-ink)]"
+          >
+            <option value="citations">Most citations</option>
+            <option value="year-desc">Newest</option>
+            <option value="year-asc">Oldest</option>
+            <option value="overlap">Most overlap</option>
+            <option value="layer">Layer</option>
+          </select>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {layerOptions.map((layer) => {
+            const value = String(layer);
+            const isActive = layerFilter === value;
+
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setLayerFilter(value)}
+                className={`ui-press min-h-8 rounded-full border px-3 text-xs font-medium ${
+                  isActive
+                    ? "border-[var(--color-jet-ink)] bg-[var(--color-jet-ink)] text-white"
+                    : "border-[var(--color-dove)] bg-white text-[var(--color-steel)] hover:text-[var(--color-jet-ink)]"
+                }`}
+              >
+                {value === "all" ? "All layers" : formatLayer(Number(value))}
+              </button>
+            );
+          })}
+          {activeAuthor ? (
+            <button
+              type="button"
+              onClick={() => setActiveAuthorId(null)}
+              className="ui-press inline-flex min-h-8 items-center gap-1 rounded-full border border-[var(--color-dove)] bg-[var(--color-sand)] px-3 text-xs font-medium text-[var(--color-jet-ink)]"
+            >
+              {activeAuthor.name}
+              <X size={13} strokeWidth={1.8} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+
+        <div className="space-y-3">
+          {filteredWorks.length > 0 ? (
+            filteredWorks.map((work) => (
+              <button
+                key={work.id}
+                type="button"
+                onClick={() => onSelect(work.id)}
+                onPointerEnter={() => onPreview(work.id)}
+                onPointerLeave={() => onPreview(null)}
+                onFocus={() => onPreview(work.id)}
+                onBlur={() => onPreview(null)}
+                className="ui-press block w-full rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-white p-4 text-left hover:bg-[var(--color-cream)]"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-base font-medium leading-6 text-[var(--color-jet-ink)]">
+                      {work.label}
+                    </p>
+                    <p className="mt-1 text-sm text-[var(--color-fog)]">
+                      {[work.year, work.type?.replaceAll("-", " "), formatLayer(work.depth)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 md:w-[260px]">
+                    <MiniMetric label="Cites" value={compactNumber(work.citations)} />
+                    <MiniMetric label="Authors" value={work.authorCount} />
+                    <MiniMetric label="Overlap" value={work.overlapAuthorCount} />
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(work.overlapAuthors.length > 0
+                    ? work.overlapAuthors
+                    : work.authors.slice(0, 6)
+                  ).map((author) => (
+                    <span
+                      key={author.id}
+                      className={`rounded-full px-2.5 py-1 text-xs ${
+                        work.overlapAuthors.some(
+                          (overlapAuthor) => overlapAuthor.id === author.id,
+                        )
+                          ? "bg-[var(--color-jet-ink)] text-white"
+                          : "bg-[var(--color-cream)] text-[var(--color-steel)]"
+                      }`}
+                    >
+                      {author.name}
+                    </span>
+                  ))}
+                  {work.overlapAuthors.length === 0 && work.authors.length > 6 ? (
+                    <span className="rounded-full bg-[var(--color-cream)] px-2.5 py-1 text-xs text-[var(--color-fog)]">
+                      +{work.authors.length - 6}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-white p-4 text-sm text-[var(--color-fog)]">
+              No papers match the current filters.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <aside className="space-y-3">
+        <div>
+          <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+            Recurring authors
+          </p>
+          <h2 className="mt-2 text-2xl font-medium leading-8 text-[var(--color-jet-ink)]">
+            Overlap map
+          </h2>
+        </div>
+
+        {graph.authorOverlaps.length > 0 ? (
+          graph.authorOverlaps.map((author) => {
+            const isActive = activeAuthorId === author.id;
+
+            return (
+              <div
+                key={author.id}
+                className={`rounded-[var(--radius-smallcards)] border p-3 ${
+                  isActive
+                    ? "border-[var(--color-jet-ink)] bg-[var(--color-sand)]"
+                    : "border-[var(--color-dove)] bg-white"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveAuthorId(isActive ? null : author.id)}
+                  className="ui-press block w-full text-left"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--color-jet-ink)]">
+                        {author.name}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-[var(--color-fog)]">
+                        {author.primaryInstitution}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[var(--color-jet-ink)] px-2.5 py-1 font-[var(--font-geistmono)] text-[11px] text-white">
+                      {author.paperCount}
+                    </span>
+                  </div>
+                </button>
+                <div className="mt-3 space-y-1.5">
+                  {author.papers.slice(0, 5).map((paper) => (
+                    <button
+                      key={paper.id}
+                      type="button"
+                      onClick={() => onSelect(paper.id)}
+                      onPointerEnter={() => onPreview(paper.id)}
+                      onPointerLeave={() => onPreview(null)}
+                      onFocus={() => onPreview(paper.id)}
+                      onBlur={() => onPreview(null)}
+                      className="ui-press block w-full truncate rounded-[var(--radius-inputs)] bg-white px-2 py-1.5 text-left text-xs text-[var(--color-steel)] hover:text-[var(--color-jet-ink)]"
+                    >
+                      {paper.label}
+                    </button>
+                  ))}
+                  {author.papers.length > 5 ? (
+                    <p className="px-2 pt-1 text-xs text-[var(--color-fog)]">
+                      +{author.papers.length - 5} more
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-[var(--radius-smallcards)] border border-[var(--color-dove)] bg-white p-4 text-sm text-[var(--color-fog)]">
+            No recurring authors in this graph.
+          </div>
+        )}
+      </aside>
+    </section>
+  );
+}
+
+function OverlapMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-[var(--radius-smallcards)] bg-[var(--color-cream)] px-4 py-3">
+      <p className="text-xs text-[var(--color-fog)]">{label}</p>
+      <p className="mt-1 text-2xl font-medium text-[var(--color-jet-ink)]">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <span className="rounded-[var(--radius-inputs)] bg-[var(--color-cream)] px-2 py-1.5 text-center">
+      <span className="block text-[10px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+        {label}
+      </span>
+      <span className="mt-0.5 block font-[var(--font-geistmono)] text-xs text-[var(--color-jet-ink)]">
+        {value}
+      </span>
+    </span>
   );
 }
 
@@ -1333,6 +1645,42 @@ function compactNumber(value: number) {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+function comparePaperInsights(
+  first: GraphResponse["workInsights"][number],
+  second: GraphResponse["workInsights"][number],
+  sortMode: PaperSortMode,
+) {
+  switch (sortMode) {
+    case "year-desc":
+      return (
+        (second.year ?? 0) - (first.year ?? 0) ||
+        second.citations - first.citations
+      );
+    case "year-asc":
+      return (
+        (first.year ?? 9999) - (second.year ?? 9999) ||
+        second.citations - first.citations
+      );
+    case "overlap":
+      return (
+        second.overlapAuthorCount - first.overlapAuthorCount ||
+        second.citations - first.citations
+      );
+    case "layer":
+      return first.depth - second.depth || second.citations - first.citations;
+    case "citations":
+    default:
+      return (
+        second.citations - first.citations ||
+        second.overlapAuthorCount - first.overlapAuthorCount
+      );
+  }
+}
+
+function formatLayer(depth: number) {
+  return depth === 0 ? "Seed" : `Layer ${depth}`;
 }
 
 function initials(label: string) {

@@ -45,6 +45,49 @@ export type RankedResearcher = {
   evidence: string[];
 };
 
+export type PaperInsightAuthor = {
+  id: string;
+  name: string;
+  url: string;
+  primaryInstitution?: string;
+  paperCount: number;
+};
+
+export type PaperInsightWork = {
+  id: string;
+  label: string;
+  url: string;
+  year: number | null;
+  type: string | null;
+  citations: number;
+  depth: number;
+  authorCount: number;
+  rankedAuthorCount: number;
+  overlapAuthorCount: number;
+  authors: PaperInsightAuthor[];
+  overlapAuthors: PaperInsightAuthor[];
+};
+
+export type AuthorOverlapPaper = {
+  id: string;
+  label: string;
+  url: string;
+  year: number | null;
+  citations: number;
+  depth: number;
+};
+
+export type AuthorOverlap = {
+  id: string;
+  name: string;
+  url: string;
+  primaryInstitution: string;
+  paperCount: number;
+  totalCitations: number;
+  proximity: number;
+  papers: AuthorOverlapPaper[];
+};
+
 export type GraphSummary = {
   seedTitle: string;
   seedUrl: string;
@@ -62,6 +105,8 @@ export type GraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   rankedResearchers: RankedResearcher[];
+  workInsights: PaperInsightWork[];
+  authorOverlaps: AuthorOverlap[];
   warnings: string[];
 };
 

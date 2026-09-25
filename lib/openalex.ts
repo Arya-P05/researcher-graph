@@ -1,8 +1,12 @@
 import {
+  AuthorOverlap,
+  AuthorOverlapPaper,
   GraphEdge,
   GraphNode,
   GraphRequest,
   GraphResponse,
+  PaperInsightAuthor,
+  PaperInsightWork,
   RankedResearcher,
 } from "@/lib/graph-types";
 
@@ -65,6 +69,7 @@ const MAX_DEPTH = 3;
 const DEFAULT_BREADTH = 12;
 const MAX_BREADTH = 24;
 const MAX_RANKED_RESEARCHERS = 24;
+const MAX_AUTHOR_OVERLAPS = 80;
 const WORK_SELECT = [
   "id",
   "doi",
@@ -172,6 +177,8 @@ export async function buildResearchGraph(
     nodes: graph.nodes,
     edges: graph.edges,
     rankedResearchers: graph.rankedResearchers,
+    workInsights: graph.workInsights,
+    authorOverlaps: graph.authorOverlaps,
     warnings,
   };
 }
@@ -411,6 +418,8 @@ function makeGraph(
   nodes: GraphNode[];
   edges: GraphEdge[];
   rankedResearchers: RankedResearcher[];
+  workInsights: PaperInsightWork[];
+  authorOverlaps: AuthorOverlap[];
 } {
   const authorStats = new Map<
     string,
@@ -530,6 +539,16 @@ function makeGraph(
   const rankedAuthorIds = new Set(
     rankedResearchers.map((researcher) => researcher.id),
   );
+  const overlapAuthorEntries = [...authorStats.entries()]
+    .filter(([, stat]) => stat.workIds.size > 1)
+    .sort(
+      ([, a], [, b]) =>
+        b.workIds.size - a.workIds.size ||
+        b.citations - a.citations ||
+        a.proximity - b.proximity,
+    )
+    .slice(0, MAX_AUTHOR_OVERLAPS);
+  const overlapAuthorIds = new Set(overlapAuthorEntries.map(([id]) => id));
   const authorNodes: GraphNode[] = [...authorStats.entries()]
     .filter(([id, stat]) => rankedAuthorIds.has(id) || stat.seedWorkIds.size > 0)
     .map(([id, stat]) => {
@@ -573,11 +592,135 @@ function makeGraph(
       (authorNodeIds.has(edge.source) || workNodeIds.has(edge.source)) &&
       (authorNodeIds.has(edge.target) || workNodeIds.has(edge.target)),
   );
+  const workById = new Map(works.map((work) => [work.id, work]));
+  const workInsights = works
+    .map((work) =>
+      makeWorkInsight(work, workDepth.get(work.id) ?? 2, authorStats, {
+        rankedAuthorIds,
+        overlapAuthorIds,
+      }),
+    )
+    .sort((a, b) => a.depth - b.depth || b.citations - a.citations);
+  const authorOverlaps: AuthorOverlap[] = overlapAuthorEntries.map(([id, stat]) => {
+    const papers = [...stat.workIds]
+      .map((workId) => workById.get(workId))
+      .filter((work): work is OpenAlexWork => Boolean(work))
+      .map((work) => makeAuthorOverlapPaper(work, workDepth.get(work.id) ?? 2))
+      .sort(
+        (a, b) =>
+          a.depth - b.depth ||
+          b.citations - a.citations ||
+          (b.year ?? 0) - (a.year ?? 0),
+      );
+
+    return {
+      id,
+      name: stat.name,
+      url: stat.url,
+      primaryInstitution: mostFrequent(stat.institutions) || "Unknown",
+      paperCount: stat.workIds.size,
+      totalCitations: stat.citations,
+      proximity: stat.proximity,
+      papers,
+    };
+  });
 
   return {
     nodes: [...workNodes, ...authorNodes],
     edges: filteredEdges,
     rankedResearchers,
+    workInsights,
+    authorOverlaps,
+  };
+}
+
+function makeWorkInsight(
+  work: OpenAlexWork,
+  depth: number,
+  authorStats: Map<
+    string,
+    {
+      name: string;
+      url: string;
+      workIds: Set<string>;
+      seedWorkIds: Set<string>;
+      citations: number;
+      coauthors: Set<string>;
+      institutions: Map<string, number>;
+      proximity: number;
+      evidence: string[];
+    }
+  >,
+  authorGroups: {
+    rankedAuthorIds: Set<string>;
+    overlapAuthorIds: Set<string>;
+  },
+): PaperInsightWork {
+  const authors = getWorkAuthors(work).map((author) =>
+    makePaperInsightAuthor(author, authorStats),
+  );
+  const overlapAuthors = authors.filter((author) =>
+    authorGroups.overlapAuthorIds.has(author.id),
+  );
+
+  return {
+    id: work.id,
+    label: workTitle(work),
+    url: work.id,
+    year: work.publication_year ?? null,
+    type: work.type ?? null,
+    citations: work.cited_by_count ?? 0,
+    depth,
+    authorCount: authors.length,
+    rankedAuthorCount: authors.filter((author) =>
+      authorGroups.rankedAuthorIds.has(author.id),
+    ).length,
+    overlapAuthorCount: overlapAuthors.length,
+    authors,
+    overlapAuthors,
+  };
+}
+
+function makePaperInsightAuthor(
+  author: WorkAuthor,
+  authorStats: Map<
+    string,
+    {
+      name: string;
+      url: string;
+      workIds: Set<string>;
+      seedWorkIds: Set<string>;
+      citations: number;
+      coauthors: Set<string>;
+      institutions: Map<string, number>;
+      proximity: number;
+      evidence: string[];
+    }
+  >,
+): PaperInsightAuthor {
+  const stat = authorStats.get(author.id);
+
+  return {
+    id: author.id,
+    name: author.name,
+    url: author.id,
+    primaryInstitution:
+      author.institution ?? (stat ? mostFrequent(stat.institutions) : undefined),
+    paperCount: stat?.workIds.size ?? 1,
+  };
+}
+
+function makeAuthorOverlapPaper(
+  work: OpenAlexWork,
+  depth: number,
+): AuthorOverlapPaper {
+  return {
+    id: work.id,
+    label: workTitle(work),
+    url: work.id,
+    year: work.publication_year ?? null,
+    citations: work.cited_by_count ?? 0,
+    depth,
   };
 }
 
