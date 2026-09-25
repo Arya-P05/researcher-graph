@@ -1,26 +1,388 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-jet-ink: #0a0a0a;
+  --color-charcoal: #151515;
+  --color-fog: #858585;
+  --color-pewter: #9d9d9d;
+  --color-steel: #545454;
+  --color-dove: #d5d9e2;
+  --color-cream: #f9f8f6;
+  --color-paper: #ffffff;
+  --color-sand: #f2ede5;
+  --color-slate: #3b3b3b;
+  --color-ember: #ff5f57;
+  --color-sunbeam: #ffbd2e;
+  --color-sprout: #28c840;
+  --font-universalsans: "universalSans", var(--font-geist-sans), ui-sans-serif,
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-universalsansdisplay: "universalSansDisplay", var(--font-geist-sans),
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-geistmono: "GeistMono", var(--font-geist-mono), ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --text-caption: 12px;
+  --leading-caption: 20;
+  --tracking-caption: -0.12px;
+  --text-body-sm: 14px;
+  --leading-body-sm: 20;
+  --tracking-body-sm: 0px;
+  --text-body: 16px;
+  --leading-body: 24;
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 32;
+  --tracking-heading-sm: -0.6px;
+  --text-subheading: 30px;
+  --leading-subheading: 36;
+  --tracking-subheading: -0.75px;
+  --text-heading: 48px;
+  --leading-heading: 48;
+  --tracking-heading: -1.2px;
+  --text-heading-lg: 60px;
+  --leading-heading-lg: 60;
+  --tracking-heading-lg: -1.5px;
+  --text-display: 72px;
+  --leading-display: 72;
+  --tracking-display: -1.8px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --spacing-unit: 4px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-96: 96px;
+  --spacing-144: 144px;
+  --page-max-width: 1360px;
+  --section-gap: 80px;
+  --card-padding: 40px;
+  --element-gap: 12px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+  --radius-cards: 16px;
+  --radius-pills: 9999px;
+  --radius-inputs: 6px;
+  --radius-buttons: 9999px;
+  --radius-smallcards: 8px;
+  --shadow-subtle: rgba(10, 10, 10, 0.15) 0px 0px 0px 1px;
+  --shadow-xl:
+    rgba(0, 0, 0, 0.1) 0px 20px 25px -5px,
+    rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
+  --shadow-subtle-2:
+    rgba(0, 0, 0, 0.06) 0px 0px 0px 1px,
+    rgba(15, 23, 42, 0.18) 0px 18px 40px -24px;
+  --surface-paper: #ffffff;
+  --surface-cream: #f9f8f6;
+  --surface-sand: #f2ede5;
+  --surface-charcoal: #151515;
+  --background: var(--color-paper);
+  --foreground: var(--color-jet-ink);
+  --ink: var(--color-jet-ink);
+  --muted-foreground: var(--color-fog);
+  --subtle-foreground: var(--color-pewter);
+  --border: var(--color-dove);
+  --surface: var(--color-paper);
+  --shadow-soft: var(--shadow-subtle-2);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
-@theme inline {
+@theme {
+  --color-jet-ink: #0a0a0a;
+  --color-charcoal: #151515;
+  --color-fog: #858585;
+  --color-pewter: #9d9d9d;
+  --color-steel: #545454;
+  --color-dove: #d5d9e2;
+  --color-cream: #f9f8f6;
+  --color-paper: #ffffff;
+  --color-sand: #f2ede5;
+  --color-slate: #3b3b3b;
+  --color-ember: #ff5f57;
+  --color-sunbeam: #ffbd2e;
+  --color-sprout: #28c840;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-border: var(--border);
+  --font-sans: "universalSans", var(--font-geist-sans), ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "GeistMono", var(--font-geist-mono), ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, monospace;
+  --font-universalsans: "universalSans", var(--font-geist-sans), ui-sans-serif,
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-universalsansdisplay: "universalSansDisplay", var(--font-geist-sans),
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-geistmono: "GeistMono", var(--font-geist-mono), ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --text-caption: 12px;
+  --leading-caption: 20;
+  --tracking-caption: -0.12px;
+  --text-body-sm: 14px;
+  --leading-body-sm: 20;
+  --tracking-body-sm: 0px;
+  --text-body: 16px;
+  --leading-body: 24;
+  --text-heading-sm: 24px;
+  --leading-heading-sm: 32;
+  --tracking-heading-sm: -0.6px;
+  --text-subheading: 30px;
+  --leading-subheading: 36;
+  --tracking-subheading: -0.75px;
+  --text-heading: 48px;
+  --leading-heading: 48;
+  --tracking-heading: -1.2px;
+  --text-heading-lg: 60px;
+  --leading-heading-lg: 60;
+  --tracking-heading-lg: -1.5px;
+  --text-display: 72px;
+  --leading-display: 72;
+  --tracking-display: -1.8px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-20: 20px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+  --spacing-40: 40px;
+  --spacing-48: 48px;
+  --spacing-64: 64px;
+  --spacing-96: 96px;
+  --spacing-144: 144px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+  --shadow-subtle: rgba(10, 10, 10, 0.15) 0px 0px 0px 1px;
+  --shadow-xl:
+    rgba(0, 0, 0, 0.1) 0px 20px 25px -5px,
+    rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
+  --shadow-subtle-2:
+    rgba(0, 0, 0, 0.06) 0px 0px 0px 1px,
+    rgba(15, 23, 42, 0.18) 0px 18px 40px -24px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-universalsans);
+}
+
+button,
+a,
+input,
+textarea {
+  outline-color: var(--color-jet-ink);
+}
+
+::selection {
+  background: var(--color-sand);
+  color: var(--color-jet-ink);
+}
+
+.ui-press {
+  transition:
+    transform 140ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out),
+    color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out),
+    opacity 160ms var(--ease-out);
+}
+
+.ui-press:active {
+  transform: scale(0.975);
+}
+
+.panel-shadow {
+  box-shadow: var(--shadow-soft);
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.8s var(--ease-out) infinite;
+}
+
+.graph-label {
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.graph-node {
+  outline: none;
+}
+
+.graph-edge {
+  opacity: 0;
+  stroke-linecap: round;
+  animation: graph-edge-build 900ms var(--ease-out) forwards;
+  will-change: opacity;
+}
+
+.graph-node-shell {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: graph-node-build 920ms var(--ease-out) forwards;
+  will-change: opacity;
+}
+
+.graph-node-shell-seed {
+  animation-duration: 780ms;
+}
+
+.graph-node:hover .graph-label,
+.graph-node:focus-visible .graph-label {
+  opacity: 1;
+}
+
+.graph-node:hover .node-ring,
+.graph-node:focus-visible .node-ring {
+  opacity: 1;
+}
+
+.graph-sheet-backdrop {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms var(--ease-out);
+}
+
+.graph-sheet-backdrop.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.graph-mobile-sheet {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px) scale(0.985);
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 320ms var(--ease-out);
+  will-change: opacity, transform;
+}
+
+.graph-mobile-sheet.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+@keyframes graph-edge-build {
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes graph-node-build {
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.88;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-press:hover {
+    transform: translateY(-1px);
+  }
+
+  .ui-press:active {
+    transform: scale(0.975);
+  }
+}
+
+@media (min-width: 768px) {
+  .graph-mobile-sheet {
+    transform: translate(-50%, 20px) scale(0.985);
+  }
+
+  .graph-mobile-sheet.is-active {
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@media (min-width: 1280px) {
+  .graph-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) 320px 0;
+    transition: grid-template-columns 420ms var(--ease-out);
+  }
+
+  .graph-workspace-grid.is-inspector-open {
+    grid-template-columns: minmax(0, 1fr) 320px 380px;
+  }
+
+  .graph-inspector-slot {
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .graph-workspace-grid.is-inspector-open .graph-inspector-slot {
+    pointer-events: auto;
+  }
+
+  .graph-inspector-shell {
+    opacity: 0;
+    transform: translateX(18px);
+    transition:
+      opacity 220ms var(--ease-out),
+      transform 360ms var(--ease-out);
+    will-change: opacity, transform;
+  }
+
+  .graph-inspector-shell.is-active {
+    opacity: 1;
+    transform: translateX(0);
+    transition-delay: 90ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-press,
+  .graph-label,
+  .graph-workspace-grid,
+  .graph-inspector-shell,
+  .graph-sheet-backdrop,
+  .graph-mobile-sheet,
+  .skeleton-pulse {
+    transition-duration: 0.01ms;
+    animation-duration: 0.01ms;
+  }
+
+  .graph-inspector-shell,
+  .graph-mobile-sheet {
+    transform: none;
+  }
+
+  .graph-edge,
+  .graph-node-shell {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms !important;
+  }
+
+  .graph-edge,
+  .graph-node-shell {
+    opacity: 1;
+  }
 }
