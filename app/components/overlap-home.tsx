@@ -485,77 +485,77 @@ export default function OverlapHome({
                 ) : null}
               </section>
 
-              <section className="overflow-hidden rounded-lg border border-[var(--color-dove)] bg-white lg:sticky lg:top-4">
+              <section className="rounded-[var(--radius-cards)] border border-[var(--color-dove)] bg-[var(--color-cream)] p-5 lg:sticky lg:top-4">
                 {activeSharedAuthor ? (
                   <>
-                    <div className="border-b border-[var(--color-dove)] p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
-                            Selected author
-                          </p>
-                          <a
-                            href={activeSharedAuthor.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="ui-press mt-1 inline-flex max-w-full items-center gap-1 text-xl font-medium hover:underline"
-                          >
-                            <span className="truncate">{activeSharedAuthor.name}</span>
-                            <ArrowUpRight
-                              size={15}
-                              className="shrink-0 text-[var(--color-fog)]"
-                              aria-hidden="true"
-                            />
-                          </a>
-                          <p className="mt-1 truncate text-sm text-[var(--color-fog)]">
-                            {activeSharedAuthor.primaryInstitution ?? "Unknown institution"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSharedAuthorFilter("all")}
-                          className="ui-press rounded-full border border-[var(--color-dove)] p-2 text-[var(--color-fog)] hover:border-black hover:text-black"
-                          aria-label="Clear selected author"
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                          Selected author
+                        </p>
+                        <a
+                          href={activeSharedAuthor.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="ui-press mt-2 inline-flex max-w-full items-center gap-1.5 text-[24px] font-medium leading-8 hover:underline"
                         >
-                          <X size={15} aria-hidden="true" />
-                        </button>
+                          <span className="truncate">{activeSharedAuthor.name}</span>
+                          <ArrowUpRight
+                            size={16}
+                            className="shrink-0 text-[var(--color-fog)]"
+                            aria-hidden="true"
+                          />
+                        </a>
+                        <p className="mt-1.5 truncate text-[15px] leading-6 text-[var(--color-fog)]">
+                          {activeSharedAuthor.primaryInstitution ?? "Unknown institution"}
+                        </p>
                       </div>
-
-                      <div className="mt-4 grid grid-cols-3 border-y border-[var(--color-dove)] text-center">
-                        <DetailMetric
-                          label="Overlaps"
-                          value={`${activeSharedAuthor.connectedSeedAuthors.length}/${result.seedAuthors.length}`}
-                        />
-                        <DetailMetric
-                          label="Papers"
-                          value={formatNumber(activeSharedAuthor.paperCount)}
-                        />
-                        <DetailMetric
-                          label="Citations"
-                          value={formatNumber(activeSharedAuthor.totalCitations)}
-                        />
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-1.5">
-                        {activeSharedAuthor.connectedSeedAuthors.map((seedAuthor) => (
-                          <span
-                            key={seedAuthor.id}
-                            className="rounded-full bg-[var(--color-jet-ink)] px-2.5 py-1 text-xs text-white"
-                          >
-                            {seedAuthor.name}
-                          </span>
-                        ))}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSharedAuthorFilter("all")}
+                        className="ui-press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--color-dove)] bg-white text-[var(--color-fog)] hover:border-black hover:text-black"
+                        aria-label="Clear selected author"
+                      >
+                        <X size={17} aria-hidden="true" />
+                      </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 border-b border-[var(--color-dove)] p-4">
+                    <div className="mt-8 grid grid-cols-2 gap-3">
+                      <DetailMetric
+                        label="Overlaps"
+                        value={`${activeSharedAuthor.connectedSeedAuthors.length}/${result.seedAuthors.length}`}
+                      />
+                      <DetailMetric
+                        label="Papers"
+                        value={formatNumber(activeSharedAuthor.paperCount)}
+                      />
+                      <DetailMetric
+                        label="Citations"
+                        value={formatNumber(activeSharedAuthor.totalCitations)}
+                      />
+                    </div>
+
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      {activeSharedAuthor.connectedSeedAuthors.map((seedAuthor) => (
+                        <span
+                          key={seedAuthor.id}
+                          className="rounded-full bg-[var(--color-jet-ink)] px-3 py-1.5 text-xs text-white"
+                        >
+                          {seedAuthor.name}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                       <div>
-                        <p className="text-sm font-medium">Overlap papers</p>
-                        <p className="mt-1 text-xs text-[var(--color-fog)]">
+                        <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
+                          Overlap papers
+                        </p>
+                        <p className="mt-1 text-sm leading-5 text-[var(--color-fog)]">
                           Papers where this person appears with seed authors.
                         </p>
                       </div>
-                      <label>
+                      <label className="shrink-0">
                         <span className="sr-only">Sort selected author papers</span>
                         <select
                           value={proofPaperSortMode}
@@ -564,7 +564,7 @@ export default function OverlapHome({
                               event.target.value as ProofPaperSortMode,
                             )
                           }
-                          className="h-9 rounded-md border border-[var(--color-dove)] bg-white px-2 text-sm text-black outline-none focus:border-black"
+                          className="h-10 w-full rounded-md border border-[var(--color-dove)] bg-white px-3 text-sm text-black outline-none focus:border-black sm:w-[180px]"
                         >
                           <option value="citations">Most citations</option>
                           <option value="year-desc">Newest</option>
@@ -574,13 +574,13 @@ export default function OverlapHome({
                       </label>
                     </div>
 
-                    <div>
+                    <div className="mt-4 space-y-3">
                       {visibleProofPapers.map((paper) => (
                         <ProofPaperRow key={paper.id} paper={paper} />
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 border-t border-[var(--color-dove)] bg-[var(--color-cream)] px-4 py-3 text-xs text-[var(--color-fog)]">
+                    <div className="mt-5 flex items-center justify-between gap-3 text-sm text-[var(--color-fog)]">
                       <span>
                         Showing {Math.min(visibleProofPaperCount, sortedProofPapers.length)} of {formatNumber(sortedProofPapers.length)} papers
                       </span>
@@ -604,11 +604,11 @@ export default function OverlapHome({
                     </div>
                   </>
                 ) : (
-                  <div className="p-5">
+                  <div>
                     <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
                       Select an author
                     </p>
-                    <h2 className="mt-1 text-xl font-medium">
+                    <h2 className="mt-2 text-[24px] font-medium leading-8">
                       No author selected
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[var(--color-steel)]">
@@ -702,9 +702,11 @@ function OverlapLoadingPanel() {
 
 function DetailMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border-r border-[var(--color-dove)] py-3 last:border-r-0">
-      <p className="font-[var(--font-geistmono)] text-base text-black">{value}</p>
-      <p className="mt-0.5 text-[11px] text-[var(--color-fog)]">{label}</p>
+    <div className="rounded-[var(--radius-smallcards)] bg-[var(--color-sand)] px-4 py-3">
+      <p className="text-[13px] leading-5 text-[var(--color-fog)]">{label}</p>
+      <p className="mt-2 font-[var(--font-geistmono)] text-[22px] leading-none text-black">
+        {value}
+      </p>
     </div>
   );
 }
@@ -721,27 +723,33 @@ function ProofPaperRow({
       href={paper.url}
       target="_blank"
       rel="noreferrer"
-      className={`ui-press block border-b border-[var(--color-dove)] last:border-b-0 hover:bg-[var(--color-cream)] ${
-        compact ? "rounded-md border bg-white p-3" : "p-4"
+      className={`ui-press block rounded-[var(--radius-smallcards)] bg-white text-left hover:bg-[var(--color-sand)] ${
+        compact ? "border border-[var(--color-dove)] p-3" : "px-4 py-3.5"
       }`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-medium leading-5">{paper.title}</p>
-          <p className="mt-1 text-xs text-[var(--color-fog)]">
+          <p className="line-clamp-2 text-[15px] font-medium leading-6 text-black">
+            {paper.title}
+          </p>
+          <p className="mt-0.5 text-sm text-[var(--color-fog)]">
             {paper.year ?? "Year unknown"}
           </p>
         </div>
-        <ArrowUpRight size={15} className="mt-0.5 shrink-0 text-[var(--color-fog)]" aria-hidden="true" />
+        <ArrowUpRight
+          size={16}
+          className="mt-1 shrink-0 text-[var(--color-fog)]"
+          aria-hidden="true"
+        />
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
-        <span className="rounded-md bg-[var(--color-cream)] px-2 py-1">
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--color-steel)]">
+        <span className="rounded-md bg-[var(--color-cream)] px-2.5 py-1.5">
           {formatNumber(paper.citations)} citations
         </span>
         {paper.seedAuthors.map((seedAuthor) => (
           <span
             key={seedAuthor.id}
-            className="rounded-md bg-[var(--color-sand)] px-2 py-1"
+            className="rounded-md bg-[var(--color-sand)] px-2.5 py-1.5"
           >
             {seedAuthor.name}
           </span>
