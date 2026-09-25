@@ -19,7 +19,6 @@ export type OverlapPaper = {
   degree: number;
   seedAuthors: OverlapAuthor[];
   sharedAuthors: OverlapAuthor[];
-  authors: OverlapAuthor[];
 };
 
 export type SharedOverlapAuthor = OverlapAuthor & {
@@ -38,8 +37,6 @@ export type SharedOverlapAuthor = OverlapAuthor & {
 
 export type AuthorOverlapRequest = {
   query: string;
-  seedAuthorLimit?: number;
-  papersPerAuthor?: number;
 };
 
 export type AuthorOverlapResponse = {
@@ -51,7 +48,6 @@ export type AuthorOverlapResponse = {
     elapsedMs: number;
     seedAuthorsProcessed: number;
     seedAuthorsAvailable: number;
-    papersPerAuthor: number;
     papersFetched: number;
     uniqueAuthors: number;
     sharedAuthors: number;

@@ -21,8 +21,6 @@ const defaultQuery = "https://doi.org/10.1038/nature14539";
 
 export default function AuthorOverlapWorkbench() {
   const [query, setQuery] = useState(defaultQuery);
-  const [seedAuthorLimit, setSeedAuthorLimit] = useState(8);
-  const [papersPerAuthor, setPapersPerAuthor] = useState(50);
   const [result, setResult] = useState<AuthorOverlapResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +44,7 @@ export default function AuthorOverlapWorkbench() {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          query,
-          seedAuthorLimit,
-          papersPerAuthor,
-        }),
+        body: JSON.stringify({ query }),
       });
       const payload = await response.json();
 
@@ -103,7 +97,7 @@ export default function AuthorOverlapWorkbench() {
 
         return (
           paper.title.toLowerCase().includes(normalizedSearch) ||
-          paper.authors.some((author) =>
+          [...paper.seedAuthors, ...paper.sharedAuthors].some((author) =>
             author.name.toLowerCase().includes(normalizedSearch),
           )
         );
@@ -128,14 +122,14 @@ export default function AuthorOverlapWorkbench() {
           </Link>
           <h1 className="text-3xl font-semibold">Author overlap workbench</h1>
           <p className="max-w-[760px] text-sm leading-6 text-[var(--color-steel)]">
-            Plain functionality page. Input a paper, fetch its authors, fetch a
-            capped set of papers for each seed author, then show which coauthors
-            overlap and which papers prove it.
+            Paste a paper. We find every author on it, fetch their complete
+            OpenAlex paper histories, and show which coauthors overlap and which
+            papers prove it.
           </p>
         </header>
 
         <form onSubmit={run} className="space-y-3 border border-black/20 p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_180px_120px]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
             <label className="block">
               <span className="text-sm font-medium">Research paper</span>
               <input
@@ -145,34 +139,12 @@ export default function AuthorOverlapWorkbench() {
                 placeholder="DOI, title, or OpenAlex work URL"
               />
             </label>
-            <label className="block">
-              <span className="text-sm font-medium">Seed authors</span>
-              <input
-                type="number"
-                min={1}
-                max={12}
-                value={seedAuthorLimit}
-                onChange={(event) => setSeedAuthorLimit(Number(event.target.value))}
-                className="mt-1 w-full border border-black/30 px-3 py-2 text-sm"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium">Papers per author</span>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                value={papersPerAuthor}
-                onChange={(event) => setPapersPerAuthor(Number(event.target.value))}
-                className="mt-1 w-full border border-black/30 px-3 py-2 text-sm"
-              />
-            </label>
             <button
               type="submit"
               disabled={isLoading}
               className="self-end border border-black bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {isLoading ? "Running..." : "Run"}
+              {isLoading ? "Finding..." : "Run"}
             </button>
           </div>
         </form>
@@ -206,9 +178,8 @@ export default function AuthorOverlapWorkbench() {
             <section className="border border-black/20 p-4">
               <h2 className="text-xl font-semibold">{result.summary.seedTitle}</h2>
               <p className="mt-1 text-sm text-[var(--color-steel)]">
-                Processed {result.summary.seedAuthorsProcessed} of{" "}
-                {result.summary.seedAuthorsAvailable} seed authors. Paper cap:{" "}
-                {result.summary.papersPerAuthor} per seed author.
+                Found {result.summary.seedAuthorsProcessed} authors on the seed
+                paper and scanned their complete OpenAlex paper histories.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {result.seedAuthors.map((author) => (
@@ -316,7 +287,7 @@ export default function AuthorOverlapWorkbench() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     className="mt-1 w-full border border-black/30 px-3 py-2 text-sm"
-                    placeholder="Paper title or author"
+                    placeholder="Paper, seed author, or shared author"
                   />
                 </label>
                 <label className="block">

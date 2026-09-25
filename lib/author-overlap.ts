@@ -58,10 +58,8 @@ type SharedAuthorStat = {
 };
 
 const OPENALEX_BASE = "https://api.openalex.org";
-const DEFAULT_SEED_AUTHOR_LIMIT = 8;
-const MAX_SEED_AUTHOR_LIMIT = 12;
-const DEFAULT_PAPERS_PER_AUTHOR = 50;
-const MAX_PAPERS_PER_AUTHOR = 200;
+const OPENALEX_PAGE_SIZE = 100;
+const AUTHOR_FETCH_CONCURRENCY = 4;
 const WORK_SELECT = [
   "id",
   "doi",
@@ -86,33 +84,18 @@ export async function buildAuthorOverlap(
   request: AuthorOverlapRequest,
 ): Promise<AuthorOverlapResponse> {
   const startedAt = Date.now();
-  const seedAuthorLimit = clamp(
-    Math.round(request.seedAuthorLimit ?? DEFAULT_SEED_AUTHOR_LIMIT),
-    1,
-    MAX_SEED_AUTHOR_LIMIT,
-  );
-  const papersPerAuthor = clamp(
-    Math.round(request.papersPerAuthor ?? DEFAULT_PAPERS_PER_AUTHOR),
-    1,
-    MAX_PAPERS_PER_AUTHOR,
-  );
   const seed = await resolveSeedWork(request.query);
-  const allSeedAuthors = getWorkAuthors(seed);
-  const seedAuthors = allSeedAuthors.slice(0, seedAuthorLimit);
+  const seedAuthors = getWorkAuthors(seed);
   const seedAuthorIds = new Set(seedAuthors.map((author) => author.id));
   const seedAuthorById = new Map(
     seedAuthors.map((author) => [author.id, toOverlapAuthor(author)]),
   );
   const warnings: string[] = [];
 
-  if (allSeedAuthors.length > seedAuthors.length) {
-    warnings.push(
-      `This paper has ${allSeedAuthors.length} authors. Processing the first ${seedAuthors.length}; raise the seed-author limit later if needed.`,
-    );
-  }
-
-  const results = await Promise.allSettled(
-    seedAuthors.map((author) => fetchWorksForAuthor(author.id, papersPerAuthor)),
+  const results = await mapWithConcurrency(
+    seedAuthors,
+    AUTHOR_FETCH_CONCURRENCY,
+    (author) => fetchWorksForAuthor(author.id),
   );
   const worksById = new Map<string, OpenAlexWork>();
 
@@ -124,12 +107,6 @@ export async function buildAuthorOverlap(
     if (result.status === "rejected") {
       warnings.push(`Could not fetch papers for ${author.name}.`);
       continue;
-    }
-
-    if (result.value.length >= papersPerAuthor) {
-      warnings.push(
-        `${author.name} hit the ${papersPerAuthor}-paper cap; results are a capped OpenAlex sample sorted by citations.`,
-      );
     }
 
     for (const work of result.value) {
@@ -247,8 +224,7 @@ export async function buildAuthorOverlap(
       source: "OpenAlex",
       elapsedMs: Date.now() - startedAt,
       seedAuthorsProcessed: seedAuthors.length,
-      seedAuthorsAvailable: allSeedAuthors.length,
-      papersPerAuthor,
+      seedAuthorsAvailable: seedAuthors.length,
       papersFetched: papers.length,
       uniqueAuthors: uniqueAuthorIds.size,
       sharedAuthors: sharedAuthors.length,
@@ -317,16 +293,15 @@ async function resolveSeedWork(query: string): Promise<OpenAlexWork> {
   return seed;
 }
 
-async function fetchWorksForAuthor(authorId: string, limit: number) {
+async function fetchWorksForAuthor(authorId: string) {
   const works: OpenAlexWork[] = [];
   let cursor: string | null = "*";
 
-  while (cursor && works.length < limit) {
-    const pageSize = Math.min(200, limit - works.length);
+  while (cursor) {
     const url = openAlexUrl("/works", {
       filter: `author.id:${shortOpenAlexId(authorId)}`,
       sort: "cited_by_count:desc",
-      per_page: String(pageSize),
+      per_page: String(OPENALEX_PAGE_SIZE),
       cursor,
       select: WORK_SELECT,
     });
@@ -381,7 +356,7 @@ async function fetchOpenAlex<T>(url: URL): Promise<T> {
 
     if (error instanceof Error && error.name === "AbortError") {
       throw new AuthorOverlapError(
-        "OpenAlex took too long to respond. Lower the paper cap and try again.",
+        "OpenAlex took too long to respond. Try the paper again in a moment.",
         504,
       );
     }
@@ -417,8 +392,38 @@ function makeOverlapPaper(
     degree: seedAuthors.length + sharedAuthors.length,
     seedAuthors,
     sharedAuthors,
-    authors,
   };
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+
+      try {
+        results[index] = {
+          status: "fulfilled",
+          value: await mapper(items[index]),
+        };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+
+  return results;
 }
 
 function getWorkAuthors(work: OpenAlexWork): WorkAuthor[] {
@@ -495,8 +500,4 @@ function openAlexErrorMessage(status: number, body: string) {
   } catch {
     return `OpenAlex returned ${status}.`;
   }
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
