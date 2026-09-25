@@ -103,14 +103,21 @@ export default function OverlapHome() {
       <div className="mx-auto w-full max-w-[1180px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12">
         <header>
           <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-medium">Researcher Map</p>
-            <Link
-              href="/overlap"
-              className="ui-press inline-flex items-center gap-1 text-sm text-[var(--color-steel)] hover:text-black"
-            >
-              Full analysis
-              <ArrowUpRight size={14} aria-hidden="true" />
+            <Link href="/" className="ui-press text-sm font-medium">
+              Researcher Map
             </Link>
+            <nav className="flex items-center gap-4 text-sm text-[var(--color-steel)]">
+              <Link href="/" className="ui-press hover:text-black">
+                Graph view
+              </Link>
+              <Link
+                href="/overlap"
+                className="ui-press inline-flex items-center gap-1 hover:text-black"
+              >
+                Full analysis
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
+            </nav>
           </div>
 
           <div className="mt-12 max-w-[760px] sm:mt-16">

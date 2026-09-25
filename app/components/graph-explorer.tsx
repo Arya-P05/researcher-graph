@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -177,6 +178,16 @@ export default function GraphExplorer() {
   return (
     <main className="min-h-screen bg-[var(--surface-paper)] text-[var(--color-jet-ink)]">
       <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-col gap-[32px] px-[16px] pb-[32px] pt-[44px] sm:px-[24px] sm:pt-[56px] lg:px-0 lg:pt-[72px]">
+        <nav className="flex items-center justify-between gap-4 text-sm">
+          <span className="font-medium">Researcher Map</span>
+          <Link
+            href="/connections"
+            className="ui-press inline-flex items-center gap-1 text-[var(--color-steel)] hover:text-black"
+          >
+            Overlap view
+            <ArrowUpRight size={14} aria-hidden="true" />
+          </Link>
+        </nav>
         <section className="grid gap-[28px] lg:grid-cols-[minmax(0,1fr)_520px] lg:items-stretch lg:gap-[32px] xl:grid-cols-[minmax(0,1fr)_620px]">
           <div className="max-w-[680px]">
             <h1 className="max-w-[680px] font-[var(--font-universalsansdisplay)] text-[44px] font-normal leading-none tracking-[-0.025em] text-[var(--color-jet-ink)] sm:text-[56px] lg:text-[64px]">

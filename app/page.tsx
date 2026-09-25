@@ -1,5 +1,5 @@
-import OverlapHome from "@/app/components/overlap-home";
+import GraphExplorer from "@/app/components/graph-explorer";
 
 export default function Home() {
-  return <OverlapHome />;
+  return <GraphExplorer />;
 }
