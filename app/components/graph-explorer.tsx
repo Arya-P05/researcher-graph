@@ -181,13 +181,15 @@ export default function GraphExplorer() {
       <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-col gap-[32px] px-[16px] pb-[32px] pt-[44px] sm:px-[24px] sm:pt-[56px] lg:px-0 lg:pt-[72px]">
         <nav className="flex items-center justify-between gap-4 text-sm">
           <span className="font-medium">Researcher Map</span>
-          <Link
-            href="/connections"
-            className="ui-press inline-flex items-center gap-1 text-[var(--color-steel)] hover:text-black"
-          >
-            Overlap view
-            <ArrowUpRight size={14} aria-hidden="true" />
-          </Link>
+          {process.env.NODE_ENV === "development" ? (
+            <Link
+              href="http://localhost:3000/overlap"
+              className="ui-press inline-flex items-center gap-1 text-[var(--color-steel)] hover:text-black"
+            >
+              Overlap view
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+          ) : null}
         </nav>
         <section className="grid gap-[28px] lg:grid-cols-[minmax(0,1fr)_520px] lg:items-stretch lg:gap-[32px] xl:grid-cols-[minmax(0,1fr)_620px]">
           <div className="max-w-[680px]">
