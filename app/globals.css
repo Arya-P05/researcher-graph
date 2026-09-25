@@ -214,6 +214,30 @@ textarea {
   animation: skeleton-pulse 1.8s var(--ease-out) infinite;
 }
 
+.overlap-loading-spinner {
+  animation: overlap-loading-spin 800ms linear infinite;
+  will-change: transform;
+}
+
+.overlap-loading-rail {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: var(--color-cream);
+}
+
+.overlap-loading-rail::after {
+  position: absolute;
+  inset: 0;
+  width: 38%;
+  background: var(--color-jet-ink);
+  content: "";
+  opacity: 0.28;
+  transform: translateX(-110%);
+  animation: overlap-loading-rail 1.35s linear infinite;
+  will-change: transform;
+}
+
 .graph-label {
   transition:
     opacity 160ms var(--ease-out),
@@ -303,6 +327,18 @@ textarea {
   }
 }
 
+@keyframes overlap-loading-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes overlap-loading-rail {
+  100% {
+    transform: translateX(280%);
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .ui-press:hover {
     transform: translateY(-1px);
@@ -365,9 +401,16 @@ textarea {
   .graph-inspector-shell,
   .graph-sheet-backdrop,
   .graph-mobile-sheet,
-  .skeleton-pulse {
+  .skeleton-pulse,
+  .overlap-loading-spinner,
+  .overlap-loading-rail::after {
     transition-duration: 0.01ms;
     animation-duration: 0.01ms;
+  }
+
+  .overlap-loading-spinner,
+  .overlap-loading-rail::after {
+    transform: none;
   }
 
   .graph-inspector-shell,

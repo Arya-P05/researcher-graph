@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, ChevronDown, LoaderCircle, Search, X } from "lucide-react";
+import { ArrowUpRight, LoaderCircle, Search, X } from "lucide-react";
 import {
   FormEvent,
   useCallback,
@@ -246,6 +246,13 @@ export default function OverlapHome({
                   People and papers shared across the seed authors
                 </h2>
               </div>
+              <Link
+                href="/connections"
+                className="ui-press inline-flex items-center gap-[4px] text-sm text-[var(--color-steel)] hover:text-black"
+              >
+                Open focused view
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
             </div>
             {isLoading ? <OverlapLoadingPanel /> : null}
             {error ? (
@@ -303,16 +310,8 @@ export default function OverlapHome({
                 <div className="border-b border-[var(--color-dove)] p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <p className="font-[var(--font-geistmono)] text-[11px] uppercase tracking-[0.08em] text-[var(--color-fog)]">
-                        Overlapping authors
-                      </p>
-                      <h2 className="mt-1 text-xl font-medium">
-                        People connecting the seed authors
-                      </h2>
+                      <h2 className="text-xl font-medium">Overlapping authors</h2>
                     </div>
-                    <span className="text-xs text-[var(--color-fog)]">
-                      {formatNumber(filteredAuthors.length)} matching people
-                    </span>
                   </div>
 
                   <div className="mt-4 grid gap-2 md:grid-cols-[minmax(0,1fr)_170px_190px]">
@@ -417,7 +416,7 @@ export default function OverlapHome({
                               ))}
                             </span>
                           </span>
-                          <span className="grid grid-cols-[64px_18px] items-center gap-2 text-right text-[11px] text-[var(--color-fog)] sm:grid-cols-[64px_72px_58px_18px]">
+                          <span className="grid grid-cols-[64px] items-center gap-2 text-right text-[11px] text-[var(--color-fog)] sm:grid-cols-[64px_72px_58px]">
                             <span>
                               <span className="block font-[var(--font-geistmono)] text-sm text-black">
                                 {author.connectedSeedAuthors.length}/{result.seedAuthors.length}
@@ -436,13 +435,6 @@ export default function OverlapHome({
                               </span>
                               latest
                             </span>
-                            <ChevronDown
-                              size={16}
-                              className={`justify-self-end text-[var(--color-fog)] transition-transform duration-150 ease-[var(--ease-out)] ${
-                                isActive ? "rotate-180" : ""
-                              }`}
-                              aria-hidden="true"
-                            />
                           </span>
                         </button>
 
@@ -635,9 +627,11 @@ export default function OverlapHome({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="border-b border-[var(--color-dove)] px-5 py-4 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
-      <p className="text-xs text-[var(--color-fog)]">{label}</p>
-      <p className="mt-1 font-[var(--font-geistmono)] text-2xl">{formatNumber(value)}</p>
+    <div className="relative border-b border-[var(--color-dove)] px-5 py-[18px] last:border-b-0 sm:border-b-0 sm:px-8 sm:py-5 sm:after:absolute sm:after:inset-y-[18px] sm:after:right-0 sm:after:w-px sm:after:bg-[var(--color-dove)] sm:last:after:hidden">
+      <p className="text-[13px] leading-5 text-[var(--color-fog)]">{label}</p>
+      <p className="mt-[6px] font-[var(--font-geistmono)] text-[28px] leading-none text-black">
+        {formatNumber(value)}
+      </p>
     </div>
   );
 }
