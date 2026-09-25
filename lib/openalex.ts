@@ -8,6 +8,9 @@ import {
   PaperInsightAuthor,
   PaperInsightWork,
   RankedResearcher,
+  SeedAuthorConnection,
+  SharedAuthor,
+  SharedAuthorPaper,
 } from "@/lib/graph-types";
 
 type OpenAlexAuthor = {
@@ -54,6 +57,19 @@ type WorkCandidate = {
   relation: "same-author" | "cites-seed" | "related" | "reference";
   fromWorkId: string;
   label: string;
+};
+
+type AuthorStat = {
+  name: string;
+  url: string;
+  workIds: Set<string>;
+  seedWorkIds: Set<string>;
+  connectedSeedAuthorIds: Set<string>;
+  citations: number;
+  coauthors: Set<string>;
+  institutions: Map<string, number>;
+  proximity: number;
+  evidence: string[];
 };
 
 type ExpansionOptions = {
@@ -177,6 +193,8 @@ export async function buildResearchGraph(
     nodes: graph.nodes,
     edges: graph.edges,
     rankedResearchers: graph.rankedResearchers,
+    seedAuthors: graph.seedAuthors,
+    sharedAuthors: graph.sharedAuthors,
     workInsights: graph.workInsights,
     authorOverlaps: graph.authorOverlaps,
     warnings,
@@ -418,23 +436,13 @@ function makeGraph(
   nodes: GraphNode[];
   edges: GraphEdge[];
   rankedResearchers: RankedResearcher[];
+  seedAuthors: SeedAuthorConnection[];
+  sharedAuthors: SharedAuthor[];
   workInsights: PaperInsightWork[];
   authorOverlaps: AuthorOverlap[];
 } {
-  const authorStats = new Map<
-    string,
-    {
-      name: string;
-      url: string;
-      workIds: Set<string>;
-      seedWorkIds: Set<string>;
-      citations: number;
-      coauthors: Set<string>;
-      institutions: Map<string, number>;
-      proximity: number;
-      evidence: string[];
-    }
-  >();
+  const seedAuthorIds = new Set(getWorkAuthors(seed).map((author) => author.id));
+  const authorStats = new Map<string, AuthorStat>();
   const edges = new Map<string, GraphEdge>();
 
   for (const edge of relationEdges) {
@@ -444,6 +452,9 @@ function makeGraph(
   for (const work of works) {
     const authors = getWorkAuthors(work);
     const depth = workDepth.get(work.id) ?? 2;
+    const workSeedAuthorIds = authors
+      .filter((author) => seedAuthorIds.has(author.id))
+      .map((author) => author.id);
 
     for (const author of authors) {
       const stat =
@@ -453,6 +464,7 @@ function makeGraph(
           url: author.id,
           workIds: new Set<string>(),
           seedWorkIds: new Set<string>(),
+          connectedSeedAuthorIds: new Set<string>(),
           citations: 0,
           coauthors: new Set<string>(),
           institutions: new Map<string, number>(),
@@ -463,6 +475,10 @@ function makeGraph(
       stat.workIds.add(work.id);
       stat.citations += work.cited_by_count ?? 0;
       stat.proximity = Math.min(stat.proximity, depth);
+
+      for (const seedAuthorId of workSeedAuthorIds) {
+        stat.connectedSeedAuthorIds.add(seedAuthorId);
+      }
 
       if (work.id === seed.id) {
         stat.seedWorkIds.add(work.id);
@@ -548,7 +564,26 @@ function makeGraph(
         a.proximity - b.proximity,
     )
     .slice(0, MAX_AUTHOR_OVERLAPS);
+  const seedAuthors = getWorkAuthors(seed).map((author) =>
+    makePaperInsightAuthor(author, authorStats),
+  );
+  const seedAuthorById = new Map(seedAuthors.map((author) => [author.id, author]));
+  const workById = new Map(works.map((work) => [work.id, work]));
+  const sharedAuthorEntries = [...authorStats.entries()]
+    .filter(
+      ([id, stat]) =>
+        !seedAuthorIds.has(id) && stat.connectedSeedAuthorIds.size > 1,
+    )
+    .sort(
+      ([, a], [, b]) =>
+        b.connectedSeedAuthorIds.size - a.connectedSeedAuthorIds.size ||
+        countProofPapers(b.workIds, workById, seedAuthorIds) -
+          countProofPapers(a.workIds, workById, seedAuthorIds) ||
+        b.citations - a.citations,
+    )
+    .slice(0, MAX_AUTHOR_OVERLAPS);
   const overlapAuthorIds = new Set(overlapAuthorEntries.map(([id]) => id));
+  const sharedAuthorIds = new Set(sharedAuthorEntries.map(([id]) => id));
   const authorNodes: GraphNode[] = [...authorStats.entries()]
     .filter(([id, stat]) => rankedAuthorIds.has(id) || stat.seedWorkIds.size > 0)
     .map(([id, stat]) => {
@@ -592,15 +627,56 @@ function makeGraph(
       (authorNodeIds.has(edge.source) || workNodeIds.has(edge.source)) &&
       (authorNodeIds.has(edge.target) || workNodeIds.has(edge.target)),
   );
-  const workById = new Map(works.map((work) => [work.id, work]));
   const workInsights = works
     .map((work) =>
       makeWorkInsight(work, workDepth.get(work.id) ?? 2, authorStats, {
         rankedAuthorIds,
         overlapAuthorIds,
+        seedAuthorIds,
+        sharedAuthorIds,
       }),
     )
     .sort((a, b) => a.depth - b.depth || b.citations - a.citations);
+  const sharedAuthors: SharedAuthor[] = sharedAuthorEntries.map(([id, stat]) => {
+    const connectedSeedAuthors = [...stat.connectedSeedAuthorIds]
+      .map((seedAuthorId) => seedAuthorById.get(seedAuthorId))
+      .filter((author): author is SeedAuthorConnection => Boolean(author))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const papers = [...stat.workIds]
+      .map((workId) => workById.get(workId))
+      .filter((work): work is OpenAlexWork => {
+        if (!work) {
+          return false;
+        }
+
+        return getWorkAuthors(work).some((author) => seedAuthorIds.has(author.id));
+      })
+      .map((work) =>
+        makeSharedAuthorPaper(
+          work,
+          workDepth.get(work.id) ?? 2,
+          authorStats,
+          seedAuthorIds,
+        ),
+      )
+      .sort(
+        (a, b) =>
+          b.connectedSeedAuthorCount - a.connectedSeedAuthorCount ||
+          b.citations - a.citations ||
+          (b.year ?? 0) - (a.year ?? 0),
+      );
+
+    return {
+      id,
+      name: stat.name,
+      url: stat.url,
+      primaryInstitution: mostFrequent(stat.institutions) || "Unknown",
+      paperCount: papers.length,
+      totalCitations: stat.citations,
+      connectedSeedAuthors,
+      papers,
+    };
+  });
   const authorOverlaps: AuthorOverlap[] = overlapAuthorEntries.map(([id, stat]) => {
     const papers = [...stat.workIds]
       .map((workId) => workById.get(workId))
@@ -629,6 +705,8 @@ function makeGraph(
     nodes: [...workNodes, ...authorNodes],
     edges: filteredEdges,
     rankedResearchers,
+    seedAuthors,
+    sharedAuthors,
     workInsights,
     authorOverlaps,
   };
@@ -637,23 +715,12 @@ function makeGraph(
 function makeWorkInsight(
   work: OpenAlexWork,
   depth: number,
-  authorStats: Map<
-    string,
-    {
-      name: string;
-      url: string;
-      workIds: Set<string>;
-      seedWorkIds: Set<string>;
-      citations: number;
-      coauthors: Set<string>;
-      institutions: Map<string, number>;
-      proximity: number;
-      evidence: string[];
-    }
-  >,
+  authorStats: Map<string, AuthorStat>,
   authorGroups: {
     rankedAuthorIds: Set<string>;
     overlapAuthorIds: Set<string>;
+    seedAuthorIds: Set<string>;
+    sharedAuthorIds: Set<string>;
   },
 ): PaperInsightWork {
   const authors = getWorkAuthors(work).map((author) =>
@@ -661,6 +728,12 @@ function makeWorkInsight(
   );
   const overlapAuthors = authors.filter((author) =>
     authorGroups.overlapAuthorIds.has(author.id),
+  );
+  const seedAuthors = authors.filter((author) =>
+    authorGroups.seedAuthorIds.has(author.id),
+  );
+  const sharedAuthors = authors.filter((author) =>
+    authorGroups.sharedAuthorIds.has(author.id),
   );
 
   return {
@@ -676,27 +749,17 @@ function makeWorkInsight(
       authorGroups.rankedAuthorIds.has(author.id),
     ).length,
     overlapAuthorCount: overlapAuthors.length,
+    connectedSeedAuthorCount: seedAuthors.length,
     authors,
     overlapAuthors,
+    seedAuthors,
+    sharedAuthors,
   };
 }
 
 function makePaperInsightAuthor(
   author: WorkAuthor,
-  authorStats: Map<
-    string,
-    {
-      name: string;
-      url: string;
-      workIds: Set<string>;
-      seedWorkIds: Set<string>;
-      citations: number;
-      coauthors: Set<string>;
-      institutions: Map<string, number>;
-      proximity: number;
-      evidence: string[];
-    }
-  >,
+  authorStats: Map<string, AuthorStat>,
 ): PaperInsightAuthor {
   const stat = authorStats.get(author.id);
 
@@ -707,6 +770,24 @@ function makePaperInsightAuthor(
     primaryInstitution:
       author.institution ?? (stat ? mostFrequent(stat.institutions) : undefined),
     paperCount: stat?.workIds.size ?? 1,
+  };
+}
+
+function makeSharedAuthorPaper(
+  work: OpenAlexWork,
+  depth: number,
+  authorStats: Map<string, AuthorStat>,
+  seedAuthorIds: Set<string>,
+): SharedAuthorPaper {
+  const authors = getWorkAuthors(work);
+  const seedAuthors = authors
+    .filter((author) => seedAuthorIds.has(author.id))
+    .map((author) => makePaperInsightAuthor(author, authorStats));
+
+  return {
+    ...makeAuthorOverlapPaper(work, depth),
+    connectedSeedAuthorCount: seedAuthors.length,
+    seedAuthors,
   };
 }
 
@@ -722,6 +803,28 @@ function makeAuthorOverlapPaper(
     citations: work.cited_by_count ?? 0,
     depth,
   };
+}
+
+function countProofPapers(
+  workIds: Set<string>,
+  workById: Map<string, OpenAlexWork>,
+  seedAuthorIds: Set<string>,
+) {
+  let count = 0;
+
+  for (const workId of workIds) {
+    const work = workById.get(workId);
+
+    if (!work) {
+      continue;
+    }
+
+    if (getWorkAuthors(work).some((author) => seedAuthorIds.has(author.id))) {
+      count += 1;
+    }
+  }
+
+  return count;
 }
 
 function getWorkAuthors(work: OpenAlexWork): WorkAuthor[] {

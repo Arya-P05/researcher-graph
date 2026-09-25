@@ -53,6 +53,8 @@ export type PaperInsightAuthor = {
   paperCount: number;
 };
 
+export type SeedAuthorConnection = PaperInsightAuthor;
+
 export type PaperInsightWork = {
   id: string;
   label: string;
@@ -64,8 +66,11 @@ export type PaperInsightWork = {
   authorCount: number;
   rankedAuthorCount: number;
   overlapAuthorCount: number;
+  connectedSeedAuthorCount: number;
   authors: PaperInsightAuthor[];
   overlapAuthors: PaperInsightAuthor[];
+  seedAuthors: SeedAuthorConnection[];
+  sharedAuthors: PaperInsightAuthor[];
 };
 
 export type AuthorOverlapPaper = {
@@ -88,6 +93,22 @@ export type AuthorOverlap = {
   papers: AuthorOverlapPaper[];
 };
 
+export type SharedAuthorPaper = AuthorOverlapPaper & {
+  connectedSeedAuthorCount: number;
+  seedAuthors: SeedAuthorConnection[];
+};
+
+export type SharedAuthor = {
+  id: string;
+  name: string;
+  url: string;
+  primaryInstitution: string;
+  paperCount: number;
+  totalCitations: number;
+  connectedSeedAuthors: SeedAuthorConnection[];
+  papers: SharedAuthorPaper[];
+};
+
 export type GraphSummary = {
   seedTitle: string;
   seedUrl: string;
@@ -105,6 +126,8 @@ export type GraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   rankedResearchers: RankedResearcher[];
+  seedAuthors: SeedAuthorConnection[];
+  sharedAuthors: SharedAuthor[];
   workInsights: PaperInsightWork[];
   authorOverlaps: AuthorOverlap[];
   warnings: string[];
