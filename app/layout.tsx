@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Researcher Map",
   description:
-    "A Next.js prototype for turning a seed paper into a ranked researcher graph.",
+    "Find the people and papers connecting the authors behind any research paper.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
