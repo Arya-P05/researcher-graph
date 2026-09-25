@@ -60,6 +60,11 @@ type ExpansionOptions = {
 };
 
 const OPENALEX_BASE = "https://api.openalex.org";
+const DEFAULT_DEPTH = 3;
+const MAX_DEPTH = 3;
+const DEFAULT_BREADTH = 12;
+const MAX_BREADTH = 24;
+const MAX_RANKED_RESEARCHERS = 24;
 const WORK_SELECT = [
   "id",
   "doi",
@@ -87,8 +92,8 @@ export async function buildResearchGraph(
 ): Promise<GraphResponse> {
   const startedAt = Date.now();
   const options: ExpansionOptions = {
-    depth: clamp(Math.round(request.depth ?? 2), 1, 2),
-    breadth: clamp(Math.round(request.breadth ?? 10), 4, 18),
+    depth: clamp(Math.round(request.depth ?? DEFAULT_DEPTH), 1, MAX_DEPTH),
+    breadth: clamp(Math.round(request.breadth ?? DEFAULT_BREADTH), 4, MAX_BREADTH),
     includeCitations: request.includeCitations ?? true,
     includeSameAuthor: request.includeSameAuthor ?? true,
   };
@@ -520,7 +525,7 @@ function makeGraph(
       } satisfies RankedResearcher;
     })
     .sort((a, b) => b.score - a.score || b.paperCount - a.paperCount)
-    .slice(0, 12);
+    .slice(0, MAX_RANKED_RESEARCHERS);
 
   const rankedAuthorIds = new Set(
     rankedResearchers.map((researcher) => researcher.id),

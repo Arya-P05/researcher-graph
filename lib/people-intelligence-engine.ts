@@ -54,7 +54,7 @@ type OpenAlexWork = {
 };
 
 const OPENALEX_BASE = "https://api.openalex.org";
-const MAX_ROSTER_PEOPLE = 12;
+const MAX_ROSTER_PEOPLE = 24;
 const AUTHOR_SELECT = [
   "id",
   "display_name",
@@ -87,8 +87,8 @@ export async function buildPeopleIntelligence(
 
   const graph = await buildResearchGraph({
     query: request.seedQuery,
-    depth: 2,
-    breadth: 10,
+    depth: 3,
+    breadth: 12,
     includeCitations: true,
     includeSameAuthor: true,
   });

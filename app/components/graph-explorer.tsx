@@ -103,8 +103,8 @@ export default function GraphExplorer() {
         },
         body: JSON.stringify({
           query,
-          depth: 2,
-          breadth: 10,
+          depth: 3,
+          breadth: 12,
           includeCitations: true,
           includeSameAuthor: true,
         }),
