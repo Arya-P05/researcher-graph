@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -181,15 +179,6 @@ export default function GraphExplorer() {
       <div className="mx-auto flex w-full max-w-[var(--page-max-width)] flex-col gap-[32px] px-[16px] pb-[32px] pt-[44px] sm:px-[24px] sm:pt-[56px] lg:px-0 lg:pt-[72px]">
         <nav className="flex items-center justify-between gap-4 text-sm">
           <span className="font-medium">Researcher Map</span>
-          {process.env.NODE_ENV === "development" ? (
-            <Link
-              href="http://localhost:3000/overlap"
-              className="ui-press inline-flex items-center gap-1 text-[var(--color-steel)] hover:text-black"
-            >
-              Overlap view
-              <ArrowUpRight size={14} aria-hidden="true" />
-            </Link>
-          ) : null}
         </nav>
         <section className="grid gap-[28px] lg:grid-cols-[minmax(0,1fr)_520px] lg:items-stretch lg:gap-[32px] xl:grid-cols-[minmax(0,1fr)_620px]">
           <div className="max-w-[680px]">
@@ -214,7 +203,7 @@ export default function GraphExplorer() {
                 type="text"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="block h-[32px] min-w-0 bg-transparent text-[22px] font-normal leading-none text-[var(--color-jet-ink)] outline-none placeholder:text-[var(--color-pewter)] sm:h-[36px] sm:text-[24px]"
+                className="block h-[32px] min-w-0 bg-transparent text-[18px] font-normal leading-none text-[var(--color-jet-ink)] outline-none placeholder:text-[var(--color-pewter)] sm:h-[36px] sm:text-[20px]"
                 spellCheck={false}
               />
               <div className="mt-auto flex items-end justify-end gap-[16px] pt-[18px]">
